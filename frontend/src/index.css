@@ -175,6 +175,7 @@ body.dark-mode .header h1 {
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
@@ -276,7 +277,9 @@ body.dark-mode .header h1 {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  transition: all 0.3s;
+  min-height: 480px;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  will-change: transform;
 }
 
 .app-card-enhanced:hover {
@@ -298,7 +301,7 @@ body.dark-mode .header h1 {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  transition: all 0.2s;
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
 .app-list-item:hover {
@@ -324,6 +327,7 @@ body.dark-mode .header h1 {
   flex-direction: row !important;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .app-list-item .app-download-section select {
@@ -333,6 +337,7 @@ body.dark-mode .header h1 {
 
 .app-list-item .app-download-section button {
   flex-shrink: 0;
+  width: auto;
 }
 
 .app-icon {
@@ -364,9 +369,23 @@ body.dark-mode .header h1 {
 
 .app-download-section {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: auto;
+}
+
+.app-download-section select {
+  flex: 0 0 calc(50% - 4px);
+  min-width: 0;
+}
+
+.app-download-section select.full-width {
+  flex: 0 0 100%;
+}
+
+.app-download-section button {
+  flex: 0 0 100%;
+  width: 100%;
 }
 
 .version-select {
@@ -378,7 +397,7 @@ body.dark-mode .header h1 {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.15s ease-out;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -386,6 +405,11 @@ body.dark-mode .header h1 {
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px;
+}
+
+.version-select option {
+  background-color: var(--bg-secondary);
+  background-image: none;
 }
 
 body.dark-mode .version-select {
@@ -400,7 +424,7 @@ body.dark-mode .version-select {
   color: var(--text-primary);
   border-radius: 6px;
   font-size: 14px;
-  transition: all 0.2s;
+  transition: border-color 0.15s ease-out;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -408,6 +432,11 @@ body.dark-mode .version-select {
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px;
+}
+
+.form-group select option {
+  background-color: var(--bg-secondary);
+  background-image: none;
 }
 
 body.dark-mode .form-group select {
