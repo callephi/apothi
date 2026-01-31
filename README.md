@@ -120,7 +120,7 @@ You can change this immediately by going into the Admin Panel through the hambur
 ### For Administrators
 
 1. Login with admin credentials
-2. Click"Admin Panel" in the hamburger mneu
+2. Click "Admin Panel" in the hamburger mneu
 3. Manage Applications:
    - Create new applications
    - Add versions to existing applications
