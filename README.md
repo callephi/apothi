@@ -150,10 +150,6 @@ npm start
 - **Authentication:** Express Session
 - **File Handling:** Multer
 
-## License
-
-This project is provided as-is for use in managing application distributions.
-
 ## Support
 
 For issues and questions, please check the logs first:
@@ -165,3 +161,13 @@ Common issues are usually related to:
 - Port conflicts (3000 and 3001 are common)
 - Database initialization (sometimes needs a few minutes for migration or initialization on first run)
 - File permissions (make sure your files are accesible by your Docker UID & GID)
+
+Please also make sure that before submitting an issue, you view previous issues to ensure yours is unique.
+
+## License
+
+This project is provided as-is for use in managing application distributions.
+
+# Disclaimer
+
+Apothi is developed and maintained with AI assistance as this is largely a project for personal use.
