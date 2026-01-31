@@ -83,7 +83,8 @@ const initDatabase = async () => {
         ADD COLUMN IF NOT EXISTS operating_system VARCHAR(50),
         ADD COLUMN IF NOT EXISTS version_type VARCHAR(20),
         ADD COLUMN IF NOT EXISTS release_date DATE,
-        ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0
+        ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS architecture VARCHAR(20)
       `);
       
       // Drop old columns if they exist
@@ -127,19 +128,18 @@ const initDatabase = async () => {
               DROP CONSTRAINT versions_application_id_version_number_operating_system_vers_key;
             END IF;
             
+            -- Drop old constraint if exists
+            DROP INDEX IF EXISTS versions_unique_combo;
+            
             -- Create new constraint with COALESCE to handle NULLs
-            -- This allows same version_number with different OS/types
-            IF NOT EXISTS (
-              SELECT 1 FROM pg_indexes 
-              WHERE indexname = 'versions_unique_combo'
-            ) THEN
-              CREATE UNIQUE INDEX versions_unique_combo ON versions (
-                application_id, 
-                version_number, 
-                COALESCE(operating_system, ''), 
-                version_type
-              );
-            END IF;
+            -- This allows same version_number with different OS/types/architectures
+            CREATE UNIQUE INDEX versions_unique_combo ON versions (
+              application_id, 
+              version_number, 
+              COALESCE(operating_system, ''), 
+              version_type,
+              COALESCE(architecture, '')
+            );
           END $$;
         `);
       } catch (err) {
@@ -171,6 +171,19 @@ const initDatabase = async () => {
       `);
     } catch (err) {
       console.log('Foreign key update note:', err.message);
+    }
+
+    // Migration: Update existing source code versions to have operating_system = 'Source Code'
+    try {
+      await pool.query(`
+        UPDATE versions 
+        SET operating_system = 'Source Code' 
+        WHERE version_type = 'source' 
+        AND (operating_system IS NULL OR operating_system != 'Source Code')
+      `);
+      console.log('Source code versions migrated successfully');
+    } catch (err) {
+      console.log('Source code migration note:', err.message);
     }
 
     console.log('Database tables initialized successfully');
