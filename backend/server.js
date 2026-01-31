@@ -351,7 +351,12 @@ app.delete('/api/applications/:id', requireAdmin, async (req, res) => {
 
 // Versions routes
 app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), async (req, res) => {
-  const { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder } = req.body;
+  let { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder, architecture } = req.body;
+  
+  // If version type is 'source', set OS to 'Source Code'
+  if (versionType === 'source') {
+    operatingSystem = 'Source Code';
+  }
   
   // Support either file upload OR file path reference
   let finalFilePath;
@@ -384,8 +389,8 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
   
   try {
     const result = await pool.query(
-      'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0]
+      'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, architecture || null]
     );
     
     // Update has_multiple_os flag if needed
@@ -451,7 +456,12 @@ app.delete('/api/versions/:id', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/versions/:id', requireAdmin, async (req, res) => {
-  const { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder } = req.body;
+  let { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder, architecture } = req.body;
+  
+  // If version type is 'source', set OS to 'Source Code'
+  if (versionType === 'source') {
+    operatingSystem = 'Source Code';
+  }
   
   try {
     // If filePath is provided and changed, validate it
@@ -504,6 +514,11 @@ app.put('/api/versions/:id', requireAdmin, async (req, res) => {
     if (sortOrder !== undefined) {
       updates.push(`sort_order = $${paramCount++}`);
       values.push(sortOrder);
+    }
+    
+    if (architecture !== undefined) {
+      updates.push(`architecture = $${paramCount++}`);
+      values.push(architecture || null);
     }
     
     if (filePath) {
