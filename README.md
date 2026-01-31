@@ -172,6 +172,6 @@ Please also make sure that before submitting an issue, you view previous issues 
 
 This project is provided as-is for use in managing application distributions. It is not for use of piracy or unauthorized redistribution either commercially or for non-profit, and by using Apothi, you agree that you are using it for personal use only.
 
-# Disclaimer
+## Disclaimer
 
 Apothi is developed and maintained with AI assistance as this is largely a project for personal use.
