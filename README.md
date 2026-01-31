@@ -13,7 +13,7 @@ A lightweight download frontend for your desktop applications.
 
 ## Screenshots
 
-<a href="./media/library_preview.jpg"><img src="./media/library_preview.jpg" width="49.5%"/></a> <a href="./media/./media/library_preview-list.jpg"><img src="./media/./media/library_preview-list.jpg" width="49.5%"/></a> <a href="./media/admin-panel-preview.jpg"><img src="./media/admin-panel-preview.jpg" width="49.5%"/></a> <a href="./media/admin-panel-modal.jpg"><img src="./media/admin-panel-modal.jpg" width="49.5%"/></a>
+<a href="./media/library_preview.jpg"><img src="./media/library_preview.jpg" width="49.5%"/></a> <a href="./media/library_preview-list.jpg"><img src="./media/library_preview-list.jpg" width="49.5%"/></a> <a href="./media/admin-panel-preview.jpg"><img src="./media/admin-panel-preview.jpg" width="49.5%"/></a> <a href="./media/admin-panel-modal.jpg"><img src="./media/admin-panel-modal.jpg" width="49.5%"/></a>
 
 ## Deployment
 
