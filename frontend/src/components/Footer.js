@@ -16,7 +16,7 @@ function Footer() {
       fontSize: '14px',
       borderTop: '1px solid var(--border-color)'
     }}>
-      apothi. v1.0.0 | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
+      apothi. v1.0.1 | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
     </footer>
   );
 }

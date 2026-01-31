@@ -11,6 +11,7 @@ function Dashboard() {
   const [selectedOS, setSelectedOS] = useState({});
   const [selectedVersionNumber, setSelectedVersionNumber] = useState({});
   const [selectedVersionType, setSelectedVersionType] = useState({});
+  const [selectedArchitecture, setSelectedArchitecture] = useState({});
   const [downloading, setDownloading] = useState(null);
   const [appVersions, setAppVersions] = useState({});
   const [sortBy, setSortBy] = useState('name');
@@ -169,10 +170,19 @@ function Dashboard() {
         grouped[key] = {
           versionNumber: v.version_number,
           operatingSystem: v.operating_system,
+          architectures: {}
+        };
+      }
+      
+      const archKey = v.architecture || 'default';
+      if (!grouped[key].architectures[archKey]) {
+        grouped[key].architectures[archKey] = {
+          architecture: v.architecture,
           types: []
         };
       }
-      grouped[key].types.push({
+      
+      grouped[key].architectures[archKey].types.push({
         id: v.id,
         type: v.version_type,
         ...v
@@ -286,7 +296,7 @@ function Dashboard() {
                 {/* OS tags and homepage icon for grid view - positioned absolutely */}
                 {viewMode === 'grid' && (() => {
                   const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-                    const order = ['Windows', 'macOS', 'Linux'];
+                    const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
                     return order.indexOf(a) - order.indexOf(b);
                   });
                   
@@ -346,7 +356,7 @@ function Dashboard() {
                     <h3 style={{ margin: 0 }}>{app.name}</h3>
                     {viewMode === 'list' && versions.length > 0 && (() => {
                       const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-                        const order = ['Windows', 'macOS', 'Linux'];
+                        const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
                         return order.indexOf(a) - order.indexOf(b);
                       });
                       const isGitHub = app.homepage && app.homepage.includes('github.com');
@@ -394,7 +404,6 @@ function Dashboard() {
                     })()}
                   </div>
                   {app.developer && <p className="app-meta">Developer: {app.developer}</p>}
-                  {app.publisher && <p className="app-meta">Publisher: {app.publisher}</p>}
                   {app.latest_version && <p className="app-meta">Latest: v{app.latest_version}</p>}
                   <p className="app-description">{app.description || 'No description available'}</p>
                 </div>
@@ -405,34 +414,37 @@ function Dashboard() {
                       const groupedVersions = groupVersions(versions);
                       const selectedOSForApp = selectedOS[app.id];
                       const selectedVerNum = selectedVersionNumber[app.id];
+                      const selectedArch = selectedArchitecture[app.id];
                       const selectedType = selectedVersionType[app.id];
                       
                       const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-                        const order = ['Windows', 'macOS', 'Linux'];
+                        const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
                         return order.indexOf(a) - order.indexOf(b);
                       });
-                      const isGitHub = app.homepage && app.homepage.includes('github.com');
                       
                       return (
                         <>
+                          {/* OS Dropdown (only if multiple OS) */}
                           {app.has_multiple_os && (
                             <select
-                              className="version-select"
+                              className={`version-select ${!selectedOSForApp ? 'full-width' : ''}`}
                               value={selectedOSForApp || ''}
                               onChange={(e) => {
                                 setSelectedOS(prev => ({ ...prev, [app.id]: e.target.value }));
                                 setSelectedVersionNumber(prev => ({ ...prev, [app.id]: '' }));
+                                setSelectedArchitecture(prev => ({ ...prev, [app.id]: '' }));
                                 setSelectedVersionType(prev => ({ ...prev, [app.id]: '' }));
                                 setSelectedVersions(prev => ({ ...prev, [app.id]: null }));
                               }}
                             >
                               <option value="">Select operating system...</option>
-                              {[...new Set(groupedVersions.map(g => g.operatingSystem).filter(Boolean))].map(os => (
+                              {operatingSystems.map(os => (
                                 <option key={os} value={os}>{os}</option>
                               ))}
                             </select>
                           )}
                           
+                          {/* Version Dropdown */}
                           {(!app.has_multiple_os || selectedOSForApp) && (
                             <select
                               className="version-select"
@@ -440,41 +452,117 @@ function Dashboard() {
                               onChange={(e) => {
                                 const verNum = e.target.value;
                                 setSelectedVersionNumber(prev => ({ ...prev, [app.id]: verNum }));
+                                setSelectedArchitecture(prev => ({ ...prev, [app.id]: '' }));
                                 setSelectedVersionType(prev => ({ ...prev, [app.id]: '' }));
+                                setSelectedVersions(prev => ({ ...prev, [app.id]: null }));
                                 
-                                // Find versions for this version number and OS
+                                // Find matching version group
                                 const matchingGroup = groupedVersions.find(g => 
                                   g.versionNumber === verNum && 
                                   (app.has_multiple_os ? g.operatingSystem === selectedOSForApp : true)
                                 );
                                 
-                                if (matchingGroup && matchingGroup.types.length === 1) {
-                                  // Only one type, auto-select it
-                                  setSelectedVersions(prev => ({ ...prev, [app.id]: matchingGroup.types[0].id }));
-                                } else {
-                                  setSelectedVersions(prev => ({ ...prev, [app.id]: null }));
+                                if (matchingGroup) {
+                                  const archs = Object.keys(matchingGroup.architectures);
+                                  
+                                  // If only one architecture
+                                  if (archs.length === 1) {
+                                    const singleArch = matchingGroup.architectures[archs[0]];
+                                    
+                                    // If only one type in that architecture, auto-select
+                                    if (singleArch.types.length === 1) {
+                                      setSelectedVersions(prev => ({ ...prev, [app.id]: singleArch.types[0].id }));
+                                    }
+                                  }
                                 }
                               }}
                             >
                               <option value="">Select version...</option>
                               {groupedVersions
                                 .filter(g => !app.has_multiple_os || g.operatingSystem === selectedOSForApp)
-                                .map(g => (
-                                  <option key={`${g.versionNumber}-${g.operatingSystem}`} value={g.versionNumber}>
-                                    v{g.versionNumber}
-                                    {g.types.length === 1 && ` (${g.types[0].type.charAt(0).toUpperCase() + g.types[0].type.slice(1)})`}
-                                  </option>
-                                ))}
+                                .map(g => {
+                                  const archs = Object.keys(g.architectures);
+                                  const singleArch = archs.length === 1 ? g.architectures[archs[0]] : null;
+                                  const archLabel = singleArch && singleArch.architecture ? `, ${singleArch.architecture}` : '';
+                                  const typeLabel = singleArch && singleArch.types.length === 1 
+                                    ? ` (${singleArch.types[0].type.charAt(0).toUpperCase() + singleArch.types[0].type.slice(1)}${archLabel})`
+                                    : '';
+                                  
+                                  return (
+                                    <option key={`${g.versionNumber}-${g.operatingSystem}`} value={g.versionNumber}>
+                                      v{g.versionNumber}{typeLabel}
+                                    </option>
+                                  );
+                                })}
                             </select>
                           )}
                           
+                          {/* Architecture Dropdown (if multiple architectures exist) */}
                           {selectedVerNum && (() => {
                             const matchingGroup = groupedVersions.find(g => 
                               g.versionNumber === selectedVerNum && 
                               (app.has_multiple_os ? g.operatingSystem === selectedOSForApp : true)
                             );
                             
-                            if (matchingGroup && matchingGroup.types.length > 1) {
+                            if (!matchingGroup) return null;
+                            
+                            const archs = Object.keys(matchingGroup.architectures);
+                            
+                            if (archs.length > 1) {
+                              return (
+                                <select
+                                  className="version-select"
+                                  value={selectedArch || ''}
+                                  onChange={(e) => {
+                                    const arch = e.target.value;
+                                    setSelectedArchitecture(prev => ({ ...prev, [app.id]: arch }));
+                                    setSelectedVersionType(prev => ({ ...prev, [app.id]: '' }));
+                                    setSelectedVersions(prev => ({ ...prev, [app.id]: null }));
+                                    
+                                    // If only one type for this arch, auto-select
+                                    const archData = matchingGroup.architectures[arch];
+                                    if (archData && archData.types.length === 1) {
+                                      setSelectedVersions(prev => ({ ...prev, [app.id]: archData.types[0].id }));
+                                    }
+                                  }}
+                                >
+                                  <option value="">Select arch...</option>
+                                  {archs.map(arch => {
+                                    const archData = matchingGroup.architectures[arch];
+                                    const archLabel = archData.architecture || 'Default';
+                                    const typeLabel = archData.types.length === 1 
+                                      ? ` (${archData.types[0].type.charAt(0).toUpperCase() + archData.types[0].type.slice(1)})`
+                                      : '';
+                                    
+                                    return (
+                                      <option key={arch} value={arch}>
+                                        {archLabel}{typeLabel}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              );
+                            }
+                            return null;
+                          })()}
+                          
+                          {/* Type Dropdown (if multiple types exist for selected arch) */}
+                          {selectedVerNum && (() => {
+                            const matchingGroup = groupedVersions.find(g => 
+                              g.versionNumber === selectedVerNum && 
+                              (app.has_multiple_os ? g.operatingSystem === selectedOSForApp : true)
+                            );
+                            
+                            if (!matchingGroup) return null;
+                            
+                            const archs = Object.keys(matchingGroup.architectures);
+                            const currentArch = archs.length > 1 ? selectedArch : archs[0];
+                            
+                            if (!currentArch) return null;
+                            
+                            const archData = matchingGroup.architectures[currentArch];
+                            
+                            if (archData && archData.types.length > 1) {
                               return (
                                 <select
                                   className="version-select"
@@ -482,14 +570,14 @@ function Dashboard() {
                                   onChange={(e) => {
                                     const type = e.target.value;
                                     setSelectedVersionType(prev => ({ ...prev, [app.id]: type }));
-                                    const typeVersion = matchingGroup.types.find(t => t.type === type);
+                                    const typeVersion = archData.types.find(t => t.type === type);
                                     if (typeVersion) {
                                       setSelectedVersions(prev => ({ ...prev, [app.id]: typeVersion.id }));
                                     }
                                   }}
                                 >
                                   <option value="">Select type...</option>
-                                  {matchingGroup.types.map(t => (
+                                  {archData.types.map(t => (
                                     <option key={t.id} value={t.type}>
                                       {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
                                     </option>
@@ -500,6 +588,7 @@ function Dashboard() {
                             return null;
                           })()}
                           
+                          {/* Download Button */}
                           {selectedVersions[app.id] && (
                             <button
                               className="btn btn-download"

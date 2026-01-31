@@ -20,7 +20,7 @@ function AdminPanel({ currentUserId }) {
   const [loading, setLoading] = useState(false);
 
   // Form states
-  const [appForm, setAppForm] = useState({ name: '', description: '', developer: '', publisher: '', iconUrl: '', homepage: '', tags: [] });
+  const [appForm, setAppForm] = useState({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
   const [versionForm, setVersionForm] = useState({ 
     versionNumber: '', 
     notes: '', 
@@ -29,7 +29,8 @@ function AdminPanel({ currentUserId }) {
     useFilePath: false,
     operatingSystem: '',
     versionType: 'installer',
-    releaseDate: ''
+    releaseDate: '',
+    architecture: ''
   });
   const [editVersionForm, setEditVersionForm] = useState({ 
     versionNumber: '', 
@@ -38,7 +39,8 @@ function AdminPanel({ currentUserId }) {
     useFilePath: false,
     operatingSystem: '',
     versionType: 'installer',
-    releaseDate: ''
+    releaseDate: '',
+    architecture: ''
   });
   const [draggedVersion, setDraggedVersion] = useState(null);
   const [userForm, setUserForm] = useState({ username: '', password: '', displayName: '', isAdmin: false });
@@ -46,7 +48,7 @@ function AdminPanel({ currentUserId }) {
   const [editUserForm, setEditUserForm] = useState({ username: '', password: '', displayName: '', isAdmin: false });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [settingsTab, setSettingsTab] = useState('versions');
-  const [appEditForm, setAppEditForm] = useState({ name: '', description: '', developer: '', publisher: '', iconUrl: '', homepage: '', tags: [] });
+  const [appEditForm, setAppEditForm] = useState({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
   const [newTag, setNewTag] = useState('');
   const [tagSuggestions, setTagSuggestions] = useState([]);
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
@@ -112,7 +114,7 @@ function AdminPanel({ currentUserId }) {
     try {
       await axios.post('/applications', appForm);
       setSuccess('Application created successfully');
-      setAppForm({ name: '', description: '', developer: '', publisher: '', iconUrl: '' });
+      setAppForm({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
       setShowAppModal(false);
       loadApplications();
     } catch (err) {
@@ -165,6 +167,9 @@ function AdminPanel({ currentUserId }) {
     formData.append('versionType', versionForm.versionType);
     if (versionForm.releaseDate) {
       formData.append('releaseDate', versionForm.releaseDate);
+    }
+    if (versionForm.architecture) {
+      formData.append('architecture', versionForm.architecture);
     }
     formData.append('sortOrder', 0);
     
@@ -286,7 +291,6 @@ function AdminPanel({ currentUserId }) {
       name: app.name,
       description: app.description || '',
       developer: app.developer || '',
-      publisher: app.publisher || '',
       iconUrl: app.icon_url || '',
       homepage: app.homepage || '',
       tags: app.tags || []
@@ -301,7 +305,7 @@ function AdminPanel({ currentUserId }) {
       // Set OS tabs if app has multiple OS
       if (app.has_multiple_os) {
         const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-          const order = ['Windows', 'macOS', 'Linux'];
+          const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
           return order.indexOf(a) - order.indexOf(b);
         });
         setVersionOSTabs(operatingSystems);
@@ -335,7 +339,8 @@ function AdminPanel({ currentUserId }) {
       useFilePath: !version.file_path.startsWith('/app/uploads/'),
       operatingSystem: version.operating_system || '',
       versionType: version.version_type || 'installer',
-      releaseDate: version.release_date || ''
+      releaseDate: version.release_date || '',
+      architecture: version.architecture || ''
     });
   };
 
@@ -352,7 +357,8 @@ function AdminPanel({ currentUserId }) {
         operatingSystem: editVersionForm.operatingSystem,
         versionType: editVersionForm.versionType,
         releaseDate: editVersionForm.releaseDate,
-        filePath: editVersionForm.useFilePath ? editVersionForm.filePath : undefined
+        filePath: editVersionForm.useFilePath ? editVersionForm.filePath : undefined,
+        architecture: editVersionForm.architecture
       });
       setVersionModalSuccess('Version updated successfully');
       setEditingVersion(null);
@@ -526,7 +532,7 @@ function AdminPanel({ currentUserId }) {
                       {(() => {
                         const versions = appVersions[app.id] || [];
                         const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-                          const order = ['Windows', 'macOS', 'Linux'];
+                          const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
                           return order.indexOf(a) - order.indexOf(b);
                         });
                         return operatingSystems.map(os => (
@@ -646,20 +652,19 @@ function AdminPanel({ currentUserId }) {
                 />
               </div>
               <div className="form-group">
-                <label>Publisher</label>
-                <input
-                  type="text"
-                  value={appForm.publisher}
-                  onChange={(e) => setAppForm({ ...appForm, publisher: e.target.value })}
-                  placeholder="e.g., Acme Inc."
-                />
-              </div>
-              <div className="form-group">
                 <label>Description</label>
                 <textarea
                   value={appForm.description}
-                  onChange={(e) => setAppForm({ ...appForm, description: e.target.value })}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 350) {
+                      setAppForm({ ...appForm, description: e.target.value });
+                    }
+                  }}
+                  maxLength={350}
                 />
+                <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
+                  {appForm.description?.length || 0}/350 characters
+                </div>
               </div>
               <div className="form-group">
                 <label>Icon</label>
@@ -941,6 +946,21 @@ function AdminPanel({ currentUserId }) {
                 </div>
               )}
 
+              {versionForm.versionType !== 'source' && versionForm.operatingSystem && (
+                <div className="form-group">
+                  <label>CPU Architecture (optional)</label>
+                  <select
+                    value={versionForm.architecture}
+                    onChange={(e) => setVersionForm({ ...versionForm, architecture: e.target.value })}
+                  >
+                    <option value="">Select architecture...</option>
+                    <option value="x64">x64 (64-bit)</option>
+                    <option value="x86">x86 (32-bit)</option>
+                    <option value="arm64">ARM64</option>
+                  </select>
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Release Date (optional)</label>
                 <input
@@ -1112,20 +1132,19 @@ function AdminPanel({ currentUserId }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Publisher</label>
-                  <input
-                    type="text"
-                    value={appEditForm.publisher}
-                    onChange={(e) => setAppEditForm({ ...appEditForm, publisher: e.target.value })}
-                    placeholder="e.g., Acme Inc."
-                  />
-                </div>
-                <div className="form-group">
                   <label>Description</label>
                   <textarea
                     value={appEditForm.description}
-                    onChange={(e) => setAppEditForm({ ...appEditForm, description: e.target.value })}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 350) {
+                        setAppEditForm({ ...appEditForm, description: e.target.value });
+                      }
+                    }}
+                    maxLength={350}
                   />
+                  <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
+                    {appEditForm.description?.length || 0}/350 characters
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Icon</label>
@@ -1146,9 +1165,6 @@ function AdminPanel({ currentUserId }) {
                       }
                     }}
                   />
-                  {appEditForm.iconUrl && (
-                    <img src={appEditForm.iconUrl} alt="Preview" style={{ width: '64px', marginTop: '8px', borderRadius: '8px' }} />
-                  )}
                 </div>
                 <div className="form-group">
                   <label>Icon URL (alternative)</label>
@@ -1440,6 +1456,21 @@ function AdminPanel({ currentUserId }) {
                           </div>
                         )}
 
+                        {editVersionForm.versionType !== 'source' && editVersionForm.operatingSystem && (
+                          <div className="form-group">
+                            <label>CPU Architecture (optional)</label>
+                            <select
+                              value={editVersionForm.architecture}
+                              onChange={(e) => setEditVersionForm({ ...editVersionForm, architecture: e.target.value })}
+                            >
+                              <option value="">Select architecture...</option>
+                              <option value="x64">x64 (64-bit)</option>
+                              <option value="x86">x86 (32-bit)</option>
+                              <option value="arm64">ARM64</option>
+                            </select>
+                          </div>
+                        )}
+
                         <div className="form-group">
                           <label>Release Date (optional)</label>
                           <input
@@ -1470,6 +1501,7 @@ function AdminPanel({ currentUserId }) {
                                 : `Uploaded: ${new Date(version.uploaded_at).toLocaleDateString()}`
                               }
                               {version.operating_system && ` • ${version.operating_system}`}
+                              {version.architecture && ` • ${version.architecture}`}
                               {version.version_type && ` • ${version.version_type.charAt(0).toUpperCase() + version.version_type.slice(1)}`}
                             </p>
                             {version.notes && <p style={{ marginTop: '6px' }}>{version.notes}</p>}
@@ -1501,8 +1533,8 @@ function AdminPanel({ currentUserId }) {
             </>
             )}
             
-            <div className="modal-actions" style={{ marginTop: '24px' }}>
-              <button className="btn btn-secondary" onClick={closeAppSettingsModal}>
+            <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card)', padding: '16px 0', borderTop: '1px solid var(--border-color)', marginTop: '24px', zIndex: 10, display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={closeAppSettingsModal} style={{ minWidth: '120px', textAlign: 'center' }}>
                 Close
               </button>
             </div>
