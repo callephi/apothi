@@ -1,0 +1,53 @@
+services:
+  postgres:
+    container_name: apothi-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: apothi
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+    restart: unless-stopped
+
+  backend:
+    container_name: apothi-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - 3001:3001
+    environment:
+      DATABASE_URL: postgresql://admin:admin@postgres:5432/apothi
+      SESSION_SECRET: CHANGE_ME_IMMEDIATELY
+      NODE_ENV: production
+    volumes:
+        # For uploaded files
+      - ./apothi/uploads:/app/uploads
+        # For files on server accessed by directory
+      - ./apothi/files:/mnt/files:ro
+    depends_on:
+      - postgres
+    networks:
+      - default
+    restart: unless-stopped
+
+  frontend:
+    # Default admin login is admin:admin
+    container_name: apothi-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+    # DEBUG, INFO, and ERROR are levels you can use here. Recommended is ERROR.
+      - REACT_APP_LOG_LEVEL=ERROR
+    depends_on:
+      - backend
+    networks:
+        - default
+        - reverse_proxy
+    restart: unless-stopped
