@@ -13,7 +13,7 @@ A lightweight download frontend for your desktop applications.
 
 ## Screenshots
 
-<a href="./media/preview_full_screen_player.png"><img src="./media/preview_full_screen_player.png" width="49.5%"/></a> <a href="./media/preview_album_artist_detail.png"><img src="./media/preview_album_artist_detail.png" width="49.5%"/></a> <a href="./media/preview_album_detail.png"><img src="./media/preview_album_detail.png" width="49.5%"/></a> <a href="./media/preview_smart_playlist.png"><img src="./media/preview_smart_playlist.png" width="49.5%"/></a>
+<a href="./media/preview_full_screen_player.jpg"><img src="./media/preview_full_screen_player.jpg" width="49.5%"/></a> <a href="./media/preview_album_artist_detail.jpg"><img src="./media/preview_album_artist_detail.jpg" width="49.5%"/></a> <a href="./media/preview_album_detail.jpg"><img src="./media/preview_album_detail.jpg" width="49.5%"/></a> <a href="./media/preview_smart_playlist.jpg"><img src="./media/preview_smart_playlist.jpg" width="49.5%"/></a>
 
 ## Deployment
 
