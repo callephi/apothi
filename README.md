@@ -32,7 +32,7 @@ git clone https://github.com/callephi/apothi.git
 
 In your favored directory for your Docker data.
 
-To get Apothi up and running, you can use the following template (which is available as `docker-compose.example.yaml`, just rename to remove `compose`).
+To get Apothi up and running, you can use the following template (which is available as `docker-compose.example.yaml`, just rename to remove `.example`).
 ```yaml
 services:
   postgres:
