@@ -13,6 +13,7 @@ function Dashboard() {
   const [selectedVersionType, setSelectedVersionType] = useState({});
   const [selectedArchitecture, setSelectedArchitecture] = useState({});
   const [downloading, setDownloading] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState({});
   const [appVersions, setAppVersions] = useState({});
   const [sortBy, setSortBy] = useState('name');
   const [filterOS, setFilterOS] = useState('all');
@@ -129,17 +130,58 @@ function Dashboard() {
     }
   };
 
+  // Format bytes to human readable
+  const formatBytes = (bytes, decimals = 1) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
   const handleDownload = async (appId, appName) => {
     const versionId = selectedVersions[appId];
     if (!versionId) return;
 
     setDownloading(appId);
+    setDownloadProgress({ [appId]: { loaded: 0, total: 0, speed: 0, percentage: 0 } });
+    
     try {
       const versions = appVersions[appId];
       const version = versions.find(v => v.id === versionId);
       
+      const startTime = Date.now();
+      let lastTime = startTime;
+      let lastLoaded = 0;
+      
       const response = await axios.get(`/download/${versionId}`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          const now = Date.now();
+          const timeDiff = (now - lastTime) / 1000; // seconds
+          const loadedDiff = progressEvent.loaded - lastLoaded;
+          
+          // Calculate speed (bytes per second)
+          const speed = timeDiff > 0 ? loadedDiff / timeDiff : 0;
+          
+          // Calculate percentage
+          const percentage = progressEvent.total 
+            ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+            : 0;
+          
+          setDownloadProgress({
+            [appId]: {
+              loaded: progressEvent.loaded,
+              total: progressEvent.total || 0,
+              speed: speed,
+              percentage: percentage
+            }
+          });
+          
+          lastTime = now;
+          lastLoaded = progressEvent.loaded;
+        }
       });
       
       // Get original filename from file_path
@@ -158,36 +200,47 @@ function Dashboard() {
       alert('Failed to download file');
     } finally {
       setDownloading(null);
+      setDownloadProgress({});
     }
   };
 
   // Helper function to group versions by version number and OS
   const groupVersions = (versions) => {
     const grouped = {};
+    
     versions.forEach(v => {
-      const key = `${v.version_number}-${v.operating_system || 'all'}`;
-      if (!grouped[key]) {
-        grouped[key] = {
-          versionNumber: v.version_number,
-          operatingSystem: v.operating_system,
-          architectures: {}
-        };
-      }
+      // If version has multiple architectures, expand into separate entries
+      const archs = v.architecture && Array.isArray(v.architecture) && v.architecture.length > 0
+        ? v.architecture
+        : [v.architecture || null];
       
-      const archKey = v.architecture || 'default';
-      if (!grouped[key].architectures[archKey]) {
-        grouped[key].architectures[archKey] = {
-          architecture: v.architecture,
-          types: []
-        };
-      }
-      
-      grouped[key].architectures[archKey].types.push({
-        id: v.id,
-        type: v.version_type,
-        ...v
+      archs.forEach(arch => {
+        const key = `${v.version_number}-${v.operating_system || 'all'}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            versionNumber: v.version_number,
+            operatingSystem: v.operating_system,
+            architectures: {}
+          };
+        }
+        
+        const archKey = arch || 'default';
+        if (!grouped[key].architectures[archKey]) {
+          grouped[key].architectures[archKey] = {
+            architecture: arch,
+            types: []
+          };
+        }
+        
+        grouped[key].architectures[archKey].types.push({
+          id: v.id,
+          type: v.version_type,
+          ...v,
+          architecture: arch // Override with current arch from loop
+        });
       });
     });
+    
     return Object.values(grouped);
   };
 
@@ -447,7 +500,7 @@ function Dashboard() {
                           {/* Version Dropdown */}
                           {(!app.has_multiple_os || selectedOSForApp) && (
                             <select
-                              className="version-select"
+                              className={`version-select ${!app.has_multiple_os && !selectedVerNum ? 'full-width' : ''}`}
                               value={selectedVerNum || ''}
                               onChange={(e) => {
                                 const verNum = e.target.value;
@@ -483,7 +536,11 @@ function Dashboard() {
                                 .map(g => {
                                   const archs = Object.keys(g.architectures);
                                   const singleArch = archs.length === 1 ? g.architectures[archs[0]] : null;
-                                  const archLabel = singleArch && singleArch.architecture ? `, ${singleArch.architecture}` : '';
+                                  
+                                  // Show architecture if: single arch with single type, OR single arch with architecture defined
+                                  const showArch = singleArch && singleArch.architecture;
+                                  const archLabel = showArch ? `, ${singleArch.architecture}` : '';
+                                  
                                   const typeLabel = singleArch && singleArch.types.length === 1 
                                     ? ` (${singleArch.types[0].type.charAt(0).toUpperCase() + singleArch.types[0].type.slice(1)}${archLabel})`
                                     : '';
@@ -577,11 +634,16 @@ function Dashboard() {
                                   }}
                                 >
                                   <option value="">Select type...</option>
-                                  {archData.types.map(t => (
-                                    <option key={t.id} value={t.type}>
-                                      {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
-                                    </option>
-                                  ))}
+                                  {archData.types.map(t => {
+                                    // Show architecture if it exists on any type in this archData
+                                    const showArch = t.architecture || archData.architecture;
+                                    return (
+                                      <option key={t.id} value={t.type}>
+                                        {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
+                                        {showArch ? ` (${showArch})` : ''}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               );
                             }
@@ -594,8 +656,23 @@ function Dashboard() {
                               className="btn btn-download"
                               onClick={() => handleDownload(app.id, app.name)}
                               disabled={downloading === app.id}
+                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minHeight: downloading === app.id ? '60px' : 'auto' }}
                             >
-                              {downloading === app.id ? 'Downloading...' : '⬇ Download'}
+                              {downloading === app.id ? (
+                                <>
+                                  <div>Downloading...</div>
+                                  {downloadProgress[app.id] && (
+                                    <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                      <span>{formatBytes(downloadProgress[app.id].speed)}/s</span>
+                                      <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.3)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', background: 'white', width: `${downloadProgress[app.id].percentage}%`, transition: 'width 0.3s' }}></div>
+                                      </div>
+                                      <span>{downloadProgress[app.id].percentage}%</span>
+                                      <span className="spinner">⟳</span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : '⬇ Download'}
                             </button>
                           )}
                         </>

@@ -30,7 +30,7 @@ function AdminPanel({ currentUserId }) {
     operatingSystem: '',
     versionType: 'installer',
     releaseDate: '',
-    architecture: ''
+    architecture: []
   });
   const [editVersionForm, setEditVersionForm] = useState({ 
     versionNumber: '', 
@@ -40,7 +40,7 @@ function AdminPanel({ currentUserId }) {
     operatingSystem: '',
     versionType: 'installer',
     releaseDate: '',
-    architecture: ''
+    architecture: []
   });
   const [draggedVersion, setDraggedVersion] = useState(null);
   const [userForm, setUserForm] = useState({ username: '', password: '', displayName: '', isAdmin: false });
@@ -168,8 +168,8 @@ function AdminPanel({ currentUserId }) {
     if (versionForm.releaseDate) {
       formData.append('releaseDate', versionForm.releaseDate);
     }
-    if (versionForm.architecture) {
-      formData.append('architecture', versionForm.architecture);
+    if (versionForm.architecture && versionForm.architecture.length > 0) {
+      formData.append('architecture', JSON.stringify(versionForm.architecture));
     }
     formData.append('sortOrder', 0);
     
@@ -332,6 +332,24 @@ function AdminPanel({ currentUserId }) {
     setEditingVersion(version);
     setVersionModalError('');
     setVersionModalSuccess('');
+    
+    // Format release date to YYYY-MM-DD for date input (strip any timezone)
+    let formattedDate = '';
+    if (version.release_date) {
+      const date = new Date(version.release_date);
+      formattedDate = date.toISOString().split('T')[0];
+    }
+    
+    // Parse architecture - might be array or single value
+    let archArray = [];
+    if (version.architecture) {
+      if (Array.isArray(version.architecture)) {
+        archArray = version.architecture;
+      } else {
+        archArray = [version.architecture];
+      }
+    }
+    
     setEditVersionForm({
       versionNumber: version.version_number,
       notes: version.notes || '',
@@ -339,8 +357,8 @@ function AdminPanel({ currentUserId }) {
       useFilePath: !version.file_path.startsWith('/app/uploads/'),
       operatingSystem: version.operating_system || '',
       versionType: version.version_type || 'installer',
-      releaseDate: version.release_date || '',
-      architecture: version.architecture || ''
+      releaseDate: formattedDate,
+      architecture: archArray
     });
   };
 
@@ -358,7 +376,7 @@ function AdminPanel({ currentUserId }) {
         versionType: editVersionForm.versionType,
         releaseDate: editVersionForm.releaseDate,
         filePath: editVersionForm.useFilePath ? editVersionForm.filePath : undefined,
-        architecture: editVersionForm.architecture
+        architecture: editVersionForm.architecture.length > 0 ? JSON.stringify(editVersionForm.architecture) : null
       });
       setVersionModalSuccess('Version updated successfully');
       setEditingVersion(null);
@@ -656,14 +674,14 @@ function AdminPanel({ currentUserId }) {
                 <textarea
                   value={appForm.description}
                   onChange={(e) => {
-                    if (e.target.value.length <= 350) {
+                    if (e.target.value.length <= 250) {
                       setAppForm({ ...appForm, description: e.target.value });
                     }
                   }}
-                  maxLength={350}
+                  maxLength={250}
                 />
                 <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
-                  {appForm.description?.length || 0}/350 characters
+                  {appForm.description?.length || 0}/250 characters
                 </div>
               </div>
               <div className="form-group">
@@ -876,9 +894,17 @@ function AdminPanel({ currentUserId }) {
                 <label>Release Notes</label>
                 <textarea
                   value={versionForm.notes}
-                  onChange={(e) => setVersionForm({ ...versionForm, notes: e.target.value })}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 180) {
+                      setVersionForm({ ...versionForm, notes: e.target.value });
+                    }
+                  }}
                   placeholder="What's new in this version?"
+                  maxLength={180}
                 />
+                <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
+                  {versionForm.notes?.length || 0}/180 characters
+                </div>
               </div>
               
               <div className="form-group">
@@ -948,16 +974,26 @@ function AdminPanel({ currentUserId }) {
 
               {versionForm.versionType !== 'source' && versionForm.operatingSystem && (
                 <div className="form-group">
-                  <label>CPU Architecture (optional)</label>
-                  <select
-                    value={versionForm.architecture}
-                    onChange={(e) => setVersionForm({ ...versionForm, architecture: e.target.value })}
-                  >
-                    <option value="">Select architecture...</option>
-                    <option value="x64">x64 (64-bit)</option>
-                    <option value="x86">x86 (32-bit)</option>
-                    <option value="arm64">ARM64</option>
-                  </select>
+                  <label>CPU Architecture (select all that apply)</label>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                    {['x64', 'x86', 'arm64'].map(arch => (
+                      <label key={arch} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input
+                          type="checkbox"
+                          checked={versionForm.architecture.includes(arch)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setVersionForm({ ...versionForm, architecture: [...versionForm.architecture, arch] });
+                            } else {
+                              setVersionForm({ ...versionForm, architecture: versionForm.architecture.filter(a => a !== arch) });
+                            }
+                          }}
+                          style={{ marginRight: '8px' }}
+                        />
+                        {arch === 'x64' ? 'x64 (64-bit)' : arch === 'x86' ? 'x86 (32-bit)' : 'ARM64'}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1093,7 +1129,7 @@ function AdminPanel({ currentUserId }) {
           onMouseDown={(e) => setModalMouseDownTarget(e.target)}
           onClick={(e) => handleModalBackgroundClick(e, closeAppSettingsModal)}
         >
-          <div className="modal" style={{ maxWidth: '800px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '800px', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             <h2>{selectedAppData.name} - Settings</h2>
             
             <div style={{ marginTop: '20px', marginBottom: '20px', display: 'flex', gap: '10px' }}>
@@ -1110,6 +1146,9 @@ function AdminPanel({ currentUserId }) {
                 Versions
               </button>
             </div>
+
+            {/* Scrollable content area */}
+            <div style={{ maxHeight: 'calc(80vh - 180px)', overflowY: 'auto', marginBottom: '80px' }}>
 
             {settingsTab === 'app' && (
               <form onSubmit={handleUpdateApp}>
@@ -1136,14 +1175,14 @@ function AdminPanel({ currentUserId }) {
                   <textarea
                     value={appEditForm.description}
                     onChange={(e) => {
-                      if (e.target.value.length <= 350) {
+                      if (e.target.value.length <= 250) {
                         setAppEditForm({ ...appEditForm, description: e.target.value });
                       }
                     }}
-                    maxLength={350}
+                    maxLength={250}
                   />
                   <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
-                    {appEditForm.description?.length || 0}/350 characters
+                    {appEditForm.description?.length || 0}/250 characters
                   </div>
                 </div>
                 <div className="form-group">
@@ -1374,8 +1413,16 @@ function AdminPanel({ currentUserId }) {
                           <label>Release Notes</label>
                           <textarea
                             value={editVersionForm.notes}
-                            onChange={(e) => setEditVersionForm({ ...editVersionForm, notes: e.target.value })}
+                            onChange={(e) => {
+                              if (e.target.value.length <= 180) {
+                                setEditVersionForm({ ...editVersionForm, notes: e.target.value });
+                              }
+                            }}
+                            maxLength={180}
                           />
+                          <div style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px', textAlign: 'right' }}>
+                            {editVersionForm.notes?.length || 0}/180 characters
+                          </div>
                         </div>
                         <div className="form-group">
                           <div className="checkbox-group">
@@ -1458,16 +1505,26 @@ function AdminPanel({ currentUserId }) {
 
                         {editVersionForm.versionType !== 'source' && editVersionForm.operatingSystem && (
                           <div className="form-group">
-                            <label>CPU Architecture (optional)</label>
-                            <select
-                              value={editVersionForm.architecture}
-                              onChange={(e) => setEditVersionForm({ ...editVersionForm, architecture: e.target.value })}
-                            >
-                              <option value="">Select architecture...</option>
-                              <option value="x64">x64 (64-bit)</option>
-                              <option value="x86">x86 (32-bit)</option>
-                              <option value="arm64">ARM64</option>
-                            </select>
+                            <label>CPU Architecture (select all that apply)</label>
+                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                              {['x64', 'x86', 'arm64'].map(arch => (
+                                <label key={arch} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={editVersionForm.architecture.includes(arch)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setEditVersionForm({ ...editVersionForm, architecture: [...editVersionForm.architecture, arch] });
+                                      } else {
+                                        setEditVersionForm({ ...editVersionForm, architecture: editVersionForm.architecture.filter(a => a !== arch) });
+                                      }
+                                    }}
+                                    style={{ marginRight: '8px' }}
+                                  />
+                                  {arch === 'x64' ? 'x64 (64-bit)' : arch === 'x86' ? 'x86 (32-bit)' : 'ARM64'}
+                                </label>
+                              ))}
+                            </div>
                           </div>
                         )}
 
@@ -1497,11 +1554,11 @@ function AdminPanel({ currentUserId }) {
                             <h4>Version {version.version_number}</h4>
                             <p style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px' }}>
                               {version.release_date 
-                                ? `Released: ${new Date(version.release_date).toLocaleDateString()}`
+                                ? `Released: ${version.release_date.split('T')[0]}`
                                 : `Uploaded: ${new Date(version.uploaded_at).toLocaleDateString()}`
                               }
                               {version.operating_system && ` • ${version.operating_system}`}
-                              {version.architecture && ` • ${version.architecture}`}
+                              {version.architecture && ` • ${Array.isArray(version.architecture) ? version.architecture.join(', ') : version.architecture}`}
                               {version.version_type && ` • ${version.version_type.charAt(0).toUpperCase() + version.version_type.slice(1)}`}
                             </p>
                             {version.notes && <p style={{ marginTop: '6px' }}>{version.notes}</p>}
@@ -1532,8 +1589,10 @@ function AdminPanel({ currentUserId }) {
             )}
             </>
             )}
+            </div> {/* Close scrollable content area */}
             
-            <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card)', padding: '16px 0', borderTop: '1px solid var(--border-color)', marginTop: '24px', zIndex: 10, display: 'flex', justifyContent: 'center' }}>
+            {/* Fixed close button at bottom */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', padding: '16px 24px', borderTop: '1px solid var(--border-color)', zIndex: 10, display: 'flex', justifyContent: 'center' }}>
               <button className="btn btn-secondary" onClick={closeAppSettingsModal} style={{ minWidth: '120px', textAlign: 'center' }}>
                 Close
               </button>
