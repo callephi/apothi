@@ -83,9 +83,21 @@ const initDatabase = async () => {
         ADD COLUMN IF NOT EXISTS operating_system VARCHAR(50),
         ADD COLUMN IF NOT EXISTS version_type VARCHAR(20),
         ADD COLUMN IF NOT EXISTS release_date DATE,
-        ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS architecture VARCHAR(20)
+        ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0
       `);
+      
+      // Drop and recreate architecture column as TEXT[] (array)
+      await pool.query(`
+        DO $$ 
+        BEGIN
+          -- Always drop architecture column to ensure clean slate
+          ALTER TABLE versions DROP COLUMN IF EXISTS architecture;
+          
+          -- Add architecture as TEXT[] array
+          ALTER TABLE versions ADD COLUMN architecture TEXT[];
+        END $$;
+      `);
+      console.log('Architecture column migrated to TEXT[] array');
       
       // Drop old columns if they exist
       try {
@@ -132,13 +144,13 @@ const initDatabase = async () => {
             DROP INDEX IF EXISTS versions_unique_combo;
             
             -- Create new constraint with COALESCE to handle NULLs
-            -- This allows same version_number with different OS/types/architectures
+            -- This allows same version_number with different OS/types
+            -- Architecture is now an array, so multiple archs can exist for same version/OS/type
             CREATE UNIQUE INDEX versions_unique_combo ON versions (
               application_id, 
               version_number, 
               COALESCE(operating_system, ''), 
-              version_type,
-              COALESCE(architecture, '')
+              version_type
             );
           END $$;
         `);

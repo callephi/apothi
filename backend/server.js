@@ -353,6 +353,21 @@ app.delete('/api/applications/:id', requireAdmin, async (req, res) => {
 app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), async (req, res) => {
   let { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder, architecture } = req.body;
   
+  // Parse architecture - it might come as JSON string or array
+  let archArray = null;
+  if (architecture) {
+    try {
+      archArray = typeof architecture === 'string' ? JSON.parse(architecture) : architecture;
+      // Ensure it's an array
+      if (!Array.isArray(archArray)) {
+        archArray = [archArray];
+      }
+    } catch (e) {
+      // If parsing fails, treat as single value
+      archArray = [architecture];
+    }
+  }
+  
   // If version type is 'source', set OS to 'Source Code'
   if (versionType === 'source') {
     operatingSystem = 'Source Code';
@@ -390,7 +405,7 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
   try {
     const result = await pool.query(
       'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, architecture || null]
+      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, archArray]
     );
     
     // Update has_multiple_os flag if needed
@@ -414,6 +429,12 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
     }
     
     console.error('Version creation error:', err);
+    
+    // Check if it's a duplicate key error
+    if (err.message && err.message.includes('duplicate key value violates unique constraint')) {
+      return res.status(400).json({ error: 'This version already exists with these settings!' });
+    }
+    
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
@@ -457,6 +478,25 @@ app.delete('/api/versions/:id', requireAdmin, async (req, res) => {
 
 app.put('/api/versions/:id', requireAdmin, async (req, res) => {
   let { versionNumber, notes, filePath, operatingSystem, versionType, releaseDate, sortOrder, architecture } = req.body;
+  
+  // Parse architecture - it might come as JSON string or array
+  let archArray = undefined;
+  if (architecture !== undefined) {
+    if (architecture === null || architecture === '') {
+      archArray = null;
+    } else {
+      try {
+        archArray = typeof architecture === 'string' ? JSON.parse(architecture) : architecture;
+        // Ensure it's an array
+        if (!Array.isArray(archArray)) {
+          archArray = [archArray];
+        }
+      } catch (e) {
+        // If parsing fails, treat as single value
+        archArray = [architecture];
+      }
+    }
+  }
   
   // If version type is 'source', set OS to 'Source Code'
   if (versionType === 'source') {
@@ -516,9 +556,9 @@ app.put('/api/versions/:id', requireAdmin, async (req, res) => {
       values.push(sortOrder);
     }
     
-    if (architecture !== undefined) {
+    if (archArray !== undefined) {
       updates.push(`architecture = $${paramCount++}`);
-      values.push(architecture || null);
+      values.push(archArray);
     }
     
     if (filePath) {
@@ -551,6 +591,12 @@ app.put('/api/versions/:id', requireAdmin, async (req, res) => {
     res.json({ version: result.rows[0] });
   } catch (err) {
     console.error('Version update error:', err);
+    
+    // Check if it's a duplicate key error
+    if (err.message && err.message.includes('duplicate key value violates unique constraint')) {
+      return res.status(400).json({ error: 'This version already exists with these settings!' });
+    }
+    
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
