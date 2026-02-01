@@ -42,8 +42,6 @@ services:
       POSTGRES_PASSWORD: admin
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-    networks:
-      - default
     restart: unless-stopped
 
   backend:
@@ -64,8 +62,6 @@ services:
       - ./apothi/files:/mnt/files:ro
     depends_on:
       - postgres
-    networks:
-      - default
     restart: unless-stopped
 
   frontend:
@@ -81,11 +77,7 @@ services:
       - REACT_APP_LOG_LEVEL=ERROR
     depends_on:
       - backend
-    networks:
-        - default
-        - reverse_proxy
     restart: unless-stopped
-
 ```
 Be sure to change the `SESSION_SECRET` in the backend to anything you like, as well as `POSTGRES_USER` and `POSTGRES_PASSWORD` to something more confidential. Be sure that, if you do, you also adapt `DATABASE_URL` to have the correct credentials.
 
