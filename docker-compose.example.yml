@@ -8,8 +8,6 @@ services:
       POSTGRES_PASSWORD: admin
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-    networks:
-      - default
     restart: unless-stopped
 
   backend:
@@ -30,8 +28,6 @@ services:
       - ./apothi/files:/mnt/files:ro
     depends_on:
       - postgres
-    networks:
-      - default
     restart: unless-stopped
 
   frontend:
@@ -47,7 +43,4 @@ services:
       - REACT_APP_LOG_LEVEL=ERROR
     depends_on:
       - backend
-    networks:
-        - default
-        - reverse_proxy
     restart: unless-stopped
