@@ -5,8 +5,8 @@ A lightweight download frontend for your desktop applications.
 ## Features
 
 - Application library with search, filter, and tag functionality
-- Version management for each application with robust customization (Installer/Portable)
-- Multiple operating system and architecture support, with room for source
+- Version management for each application with robust customization (Installer/Portable/Source)
+- Multiple operating systems and architecture support
 - Basic login authentication
 - User management
 - Quick Docker Compose deployment
