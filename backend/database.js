@@ -86,18 +86,41 @@ const initDatabase = async () => {
         ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0
       `);
       
-      // Drop and recreate architecture column as TEXT[] (array)
+      // Add or convert architecture column to TEXT[] (array)
       await pool.query(`
         DO $$ 
         BEGIN
-          -- Always drop architecture column to ensure clean slate
-          ALTER TABLE versions DROP COLUMN IF EXISTS architecture;
-          
-          -- Add architecture as TEXT[] array
-          ALTER TABLE versions ADD COLUMN architecture TEXT[];
+          -- Check if architecture column exists
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'versions' AND column_name = 'architecture'
+          ) THEN
+            -- Add architecture as TEXT[] array if it doesn't exist
+            ALTER TABLE versions ADD COLUMN architecture TEXT[];
+            RAISE NOTICE 'Architecture column added as TEXT[]';
+          ELSIF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'versions' AND column_name = 'architecture'
+            AND udt_name != '_text'
+          ) THEN
+            -- Column exists but is wrong type - convert it
+            ALTER TABLE versions DROP COLUMN architecture;
+            ALTER TABLE versions ADD COLUMN architecture TEXT[];
+            RAISE NOTICE 'Architecture column converted to TEXT[]';
+          ELSE
+            RAISE NOTICE 'Architecture column already exists as TEXT[]';
+          END IF;
         END $$;
       `);
-      console.log('Architecture column migrated to TEXT[] array');
+      console.log('Architecture column check completed');
+      
+      // Verify the column type
+      const typeCheck = await pool.query(`
+        SELECT data_type, udt_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'versions' AND column_name = 'architecture'
+      `);
+      console.log('Architecture column type:', typeCheck.rows[0]);
       
       // Drop old columns if they exist
       try {

@@ -5,6 +5,7 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const multer = require('multer');
+const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs').promises;
 const { pool, initDatabase } = require('./database');
@@ -58,24 +59,8 @@ const upload = multer({
 });
 
 // Image upload configuration
-const imageStorage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = '/app/uploads/images';
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (err) {
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
 const imageUpload = multer({
-  storage: imageStorage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -287,6 +272,11 @@ app.get('/api/applications/:id', requireAuth, async (req, res) => {
       'SELECT * FROM versions WHERE application_id = $1 ORDER BY sort_order DESC, uploaded_at DESC',
       [req.params.id]
     );
+    
+    // Debug: Log architecture data
+    if (versionsResult.rows.length > 0) {
+      console.log('Sample version architecture:', versionsResult.rows[0].architecture, 'Type:', typeof versionsResult.rows[0].architecture);
+    }
     
     res.json({
       application: appResult.rows[0],
@@ -607,7 +597,29 @@ app.post('/api/upload-image', requireAdmin, imageUpload.single('image'), async (
     return res.status(400).json({ error: 'No image uploaded' });
   }
   
-  res.json({ imageUrl: `/api/images/${req.file.filename}` });
+  try {
+    const uploadDir = '/app/uploads/images';
+    await fs.mkdir(uploadDir, { recursive: true });
+    
+    const filename = Date.now() + '-' + Math.round(Math.random() * 1E9) + '.webp';
+    const filepath = path.join(uploadDir, filename);
+    
+    // Optimize image without forcing square - preserve original aspect ratio
+    await sharp(req.file.buffer)
+      .resize({
+        width: 512,
+        height: 512,
+        fit: 'inside',  // Preserve aspect ratio, no cropping
+        withoutEnlargement: true  // Don't upscale small images
+      })
+      .webp({ quality: 90 })
+      .toFile(filepath);
+    
+    res.json({ imageUrl: `/api/images/${filename}` });
+  } catch (err) {
+    console.error('Image processing error:', err);
+    res.status(500).json({ error: 'Failed to process image' });
+  }
 });
 
 app.get('/api/images/:filename', (req, res) => {
