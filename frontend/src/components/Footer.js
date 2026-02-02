@@ -9,14 +9,19 @@ function Footer() {
 
   return (
     <footer style={{
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
       textAlign: 'center',
-      padding: '20px',
-      marginTop: 'auto',
+      padding: '12px 20px',
       color: 'var(--text-meta)',
       fontSize: '14px',
-      borderTop: '1px solid var(--border-color)'
+      borderTop: '1px solid var(--border-color)',
+      background: 'var(--bg-primary)',
+      zIndex: 100
     }}>
-      apothi. v1.0.2 | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
+      apothi. v1.0.3 | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
     </footer>
   );
 }

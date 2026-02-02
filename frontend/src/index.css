@@ -61,7 +61,7 @@ code {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 30px 20px;
+  padding: 30px 20px 70px 20px;
 }
 
 .header {
@@ -305,7 +305,7 @@ body.dark-mode .header h1 {
 
 .app-list-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   padding: 16px;
   background: var(--bg-card);
@@ -319,9 +319,41 @@ body.dark-mode .header h1 {
   box-shadow: var(--shadow-hover);
 }
 
+.app-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.app-tags-horizontal {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.tag {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+}
+
+
 .app-list-item .app-icon {
-  width: 48px;
-  height: 48px;
+  max-width: 48px;
+  max-height: 48px;
+  width: auto;
+  height: auto;
   flex-shrink: 0;
 }
 
@@ -336,8 +368,8 @@ body.dark-mode .header h1 {
   display: flex;
   flex-direction: row !important;
   gap: 8px;
-  align-items: center;
   flex-wrap: wrap;
+  margin-top: 0 !important;
 }
 
 .app-list-item .app-download-section select {
@@ -351,10 +383,13 @@ body.dark-mode .header h1 {
 }
 
 .app-icon {
-  width: 64px;
-  height: 64px;
+  max-width: 64px;
+  max-height: 64px;
+  width: auto;
+  height: auto;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain;
+  display: block;
 }
 
 .app-info h3 {
@@ -595,6 +630,32 @@ body.dark-mode .modal select option {
   margin-bottom: 20px;
   font-size: 14px;
   border-left: 4px solid #3c3;
+}
+
+.filter-select {
+  padding: 10px 40px 10px 14px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+}
+
+.filter-select:hover {
+  border-color: var(--btn-primary);
+}
+
+body.dark-mode .filter-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ccc' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
 }
 
 .search-bar {

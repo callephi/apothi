@@ -18,6 +18,7 @@ function AdminPanel({ currentUserId }) {
   const [appVersions, setAppVersions] = useState({});
   const [editingVersion, setEditingVersion] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sortAppsBy, setSortAppsBy] = useState('name');
 
   // Form states
   const [appForm, setAppForm] = useState({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
@@ -192,7 +193,8 @@ function AdminPanel({ currentUserId }) {
         useFilePath: false,
         operatingSystem: '',
         versionType: 'installer',
-        releaseDate: ''
+        releaseDate: '',
+        architecture: []
       });
       setShowVersionModal(false);
       setSelectedApp(null);
@@ -379,8 +381,16 @@ function AdminPanel({ currentUserId }) {
         architecture: editVersionForm.architecture.length > 0 ? JSON.stringify(editVersionForm.architecture) : null
       });
       setVersionModalSuccess('Version updated successfully');
-      setEditingVersion(null);
-      openAppSettings(selectedAppData); // Reload versions
+      
+      // Reload versions without closing the modal or changing tabs
+      const versionsResponse = await axios.get(`/applications/${selectedAppData.id}`);
+      setAppVersions({ ...appVersions, [selectedAppData.id]: versionsResponse.data.versions });
+      
+      // Update the editing version with fresh data
+      const updatedVersion = versionsResponse.data.versions.find(v => v.id === editingVersion.id);
+      if (updatedVersion) {
+        setEditingVersion(updatedVersion);
+      }
     } catch (err) {
       setVersionModalError(err.response?.data?.error || 'Failed to update version');
     } finally {
@@ -443,8 +453,9 @@ function AdminPanel({ currentUserId }) {
     }
     
     try {
-      // Reorder versions locally
-      const reorderedVersions = [...appVersions];
+      // Get the current app's versions
+      const currentVersions = appVersions[selectedAppData.id] || [];
+      const reorderedVersions = [...currentVersions];
       const draggedIndex = reorderedVersions.findIndex(v => v.id === draggedVersion.id);
       const targetIndex = reorderedVersions.findIndex(v => v.id === targetVersion.id);
       
@@ -500,14 +511,30 @@ function AdminPanel({ currentUserId }) {
             </button>
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <select
+              value={sortAppsBy}
+              onChange={(e) => setSortAppsBy(e.target.value)}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                fontSize: '14px',
+                minWidth: '180px'
+              }}
+            >
+              <option value="name">Sort by Name</option>
+              <option value="updated">Sort by Last Updated</option>
+            </select>
             <input
               type="text"
               placeholder="Search applications..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
-                width: '100%',
+                flex: 1,
                 padding: '12px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)',
@@ -518,22 +545,40 @@ function AdminPanel({ currentUserId }) {
             />
           </div>
 
-          {applications.filter(app =>
-            app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            app.description?.toLowerCase().includes(searchTerm.toLowerCase())
-          ).length === 0 ? (
+          {applications
+            .filter(app =>
+              app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .sort((a, b) => {
+              if (sortAppsBy === 'name') {
+                return a.name.localeCompare(b.name);
+              } else {
+                return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+              }
+            })
+            .length === 0 ? (
             <div className="empty-state">
               <p>{searchTerm ? 'No applications found matching your search.' : 'No applications yet. Create one to get started!'}</p>
             </div>
           ) : (
             <div>
-              {applications.filter(app =>
-                app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                app.description?.toLowerCase().includes(searchTerm.toLowerCase())
-              ).map(app => (
+              {applications
+                .filter(app =>
+                  app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .sort((a, b) => {
+                  if (sortAppsBy === 'name') {
+                    return a.name.localeCompare(b.name);
+                  } else {
+                    return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+                  }
+                })
+                .map(app => (
                 <div key={app.id} className="version-item" style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                   {app.icon_url && (
-                    <img src={app.icon_url} alt={app.name} style={{ width: '64px', height: '64px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 }} />
+                    <img src={app.icon_url} alt={app.name} style={{ maxWidth: '64px', maxHeight: '64px', width: 'auto', height: 'auto', borderRadius: '12px', objectFit: 'contain', flexShrink: 0 }} />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -704,7 +749,7 @@ function AdminPanel({ currentUserId }) {
                   }}
                 />
                 {appForm.iconUrl && (
-                  <img src={appForm.iconUrl} alt="Preview" style={{ width: '64px', marginTop: '8px', borderRadius: '8px' }} />
+                  <img src={appForm.iconUrl} alt="Preview" style={{ maxWidth: '64px', maxHeight: '64px', width: 'auto', height: 'auto', marginTop: '8px', borderRadius: '8px', objectFit: 'contain' }} />
                 )}
               </div>
               <div className="form-group">
@@ -1561,7 +1606,7 @@ function AdminPanel({ currentUserId }) {
                               {version.architecture && ` • ${Array.isArray(version.architecture) ? version.architecture.join(', ') : version.architecture}`}
                               {version.version_type && ` • ${version.version_type.charAt(0).toUpperCase() + version.version_type.slice(1)}`}
                             </p>
-                            {version.notes && <p style={{ marginTop: '6px' }}>{version.notes}</p>}
+                            {version.notes && <p style={{ marginTop: '6px', paddingRight: '80px' }}>{version.notes}</p>}
                             <p style={{ fontSize: '12px', color: 'var(--text-meta)', marginTop: '4px' }}>
                               Path: {version.file_path}
                             </p>
