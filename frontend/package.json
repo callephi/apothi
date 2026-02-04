@@ -1,6 +1,6 @@
 {
   "name": "apothi-frontend",
-  "version": "1.0.3",
+  "version": "1.0.3a",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",

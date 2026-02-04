@@ -31,6 +31,10 @@ function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showMenu, setShowMenu] = useState(false);
   const [showTagsMenu, setShowTagsMenu] = useState(false);
+  const [showExtrasModal, setShowExtrasModal] = useState(false);
+  const [selectedAppExtras, setSelectedAppExtras] = useState(null);
+  const [appExtras, setAppExtras] = useState([]);
+  const [appsWithExtras, setAppsWithExtras] = useState({});
 
   // Save preferences to localStorage
   useEffect(() => {
@@ -158,6 +162,7 @@ function Dashboard() {
       // Load versions for each application
       for (const app of response.data.applications) {
         loadVersionsForApp(app);
+        loadExtrasForApp(app);
       }
     } catch (err) {
       logger.error('Error loading applications:', err);
@@ -175,6 +180,17 @@ function Dashboard() {
       // Auto-selection will be handled after render with proper grouping
     } catch (err) {
       logger.error('Error loading versions:', err);
+    }
+  };
+
+  const loadExtrasForApp = async (app) => {
+    try {
+      const response = await axios.get(`/applications/${app.id}/extras`);
+      const hasExtras = response.data.extras && response.data.extras.length > 0;
+      setAppsWithExtras(prev => ({ ...prev, [app.id]: hasExtras }));
+    } catch (err) {
+      // Silently fail - extras are optional
+      setAppsWithExtras(prev => ({ ...prev, [app.id]: false }));
     }
   };
 
@@ -267,6 +283,19 @@ function Dashboard() {
     }
   };
 
+  const openExtrasModal = async (app) => {
+    setSelectedAppExtras(app);
+    try {
+      const response = await axios.get(`/applications/${app.id}/extras`);
+      setAppExtras(response.data.extras || []);
+      setShowExtrasModal(true);
+    } catch (err) {
+      logger.error('Error loading extras:', err);
+      setAppExtras([]);
+      setShowExtrasModal(true);
+    }
+  };
+
   // Helper function to group versions
   const groupVersions = (versions) => {
     const grouped = {};
@@ -335,6 +364,30 @@ function Dashboard() {
           alignItems: 'flex-end',
           zIndex: 1
         }}>
+          {appsWithExtras[app.id] && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openExtrasModal(app);
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                textAlign: 'center',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.background = '#059669'}
+              onMouseOut={(e) => e.target.style.background = '#10b981'}
+            >
+              Extras ›
+            </button>
+          )}
           {sortedOS.map(os => (
             <span key={os} style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -374,10 +427,33 @@ function Dashboard() {
           )}
         </div>
       );
-    } else {
+    } else if (viewMode === 'list') {
       // List view - horizontal layout
       return (
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+          {appsWithExtras[app.id] && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openExtrasModal(app);
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.background = '#059669'}
+              onMouseOut={(e) => e.target.style.background = '#10b981'}
+            >
+              Extras ›
+            </button>
+          )}
           {sortedOS.map(os => (
             <span key={os} style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -417,6 +493,7 @@ function Dashboard() {
         </div>
       );
     }
+    return null;
   };
 
   // Render helper for app metadata
@@ -891,6 +968,59 @@ function Dashboard() {
           </div>
           {renderPagination()}
         </>
+      )}
+
+      {/* Extras Modal */}
+      {showExtrasModal && selectedAppExtras && (
+        <div className="modal-overlay" onClick={() => setShowExtrasModal(false)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+            <h2>{selectedAppExtras.name} - Extras</h2>
+            
+            {appExtras.length === 0 ? (
+              <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-meta)' }}>
+                No extra files available for this application
+              </p>
+            ) : (
+              <div style={{ marginTop: '20px' }}>
+                {appExtras.map(extra => (
+                  <div key={extra.id} style={{ 
+                    padding: '16px', 
+                    marginBottom: '12px', 
+                    background: 'var(--bg-secondary)', 
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <h4 style={{ margin: '0 0 8px 0' }}>{extra.file_name}</h4>
+                    {extra.description && (
+                      <p style={{ margin: '4px 0 8px 0', color: 'var(--text-secondary)' }}>
+                        {extra.description}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '13px', color: 'var(--text-meta)', margin: '4px 0' }}>
+                      Uploaded: {new Date(extra.uploaded_at).toLocaleDateString()} | ~{formatBytes(extra.file_size)}
+                    </p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-meta)', fontFamily: 'monospace', margin: '4px 0 12px 0' }}>
+                      Path: {extra.file_path}
+                    </p>
+                    <a 
+                      href={`/api/download-extra/${extra.id}`}
+                      className="btn btn-primary"
+                      style={{ display: 'inline-block', textDecoration: 'none' }}
+                    >
+                      ⬇ Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowExtrasModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

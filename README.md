@@ -5,11 +5,13 @@ A lightweight download frontend for your desktop applications.
 ## Features
 
 - Application library with search, filter, and tag functionality
-- Version management for each application with robust customization (Installer/Portable/Source)
-- Support for multiple operating systems and architectures
+- Version management for each application with robust customization (Installer/Portable)
+- Support for multiple operating systems and architectures, and source code
 - Basic login authentication
 - User management
 - Quick Docker Compose deployment
+
+* coming soon
 
 ## Screenshots
 
@@ -28,9 +30,7 @@ Clone the repository by running:
 git clone https://github.com/callephi/apothi.git
 ```
 
-In your favored directory for your Docker data.
-
-To get Apothi up and running, you can use the following template (which is available as `docker-compose.example.yaml`, just rename to remove `.example`).
+To get Apothi up and running, you can use the following template (which is available as `docker-compose.example.yaml`, just rename to remove `example`).
 ```yaml
 services:
   postgres:
@@ -57,7 +57,7 @@ services:
       NODE_ENV: production
     volumes:
         # For uploaded files
-      - ./apothi/uploads:/app/uploads
+      - ./apothi:/app/uploads
         # For files on server accessed by directory
       - ./apothi/files:/mnt/files:ro
     depends_on:
@@ -71,10 +71,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - 3000:80
     environment:
     # DEBUG, INFO, and ERROR are levels you can use here. Recommended is ERROR.
-      - REACT_APP_LOG_LEVEL=ERROR
+      - REACT_APP_LOG_LEVEL=INFO
     depends_on:
       - backend
     restart: unless-stopped
@@ -101,11 +101,11 @@ You can change this immediately by going into the Admin Panel through the hambur
 
 ### For Users
 
-1. Login with your credentials
-2. Browse the application library
-3. Search for applications using the search bar
-4. Click on an application to view available versions
-5. Download the version you need
+1. Browse the application library
+2. Search for applications using the search bar
+3. Customize app details (version, OS, arch) to their fitting if available
+4. In-page download progress
+5. Download extras like user data, readmes, etc.
 
 ### For Administrators
 
@@ -113,8 +113,9 @@ You can change this immediately by going into the Admin Panel through the hambur
 2. Click "Admin Panel" in the hamburger mneu
 3. Manage Applications:
    - Create new applications
-   - Add versions to existing applications
+   - Add versions to existing applications with OS, architecture, release date and more
    - Upload files
+   - Upload extras like user data or other files
    - Delete applications (and all their versions)
 4. Manage Users:
    - Create new user accounts
@@ -145,6 +146,7 @@ npm start
 - **Frontend:** React, React Router
 - **Authentication:** Express Session
 - **File Handling:** Multer
+- **Image Processing**: Sharp
 
 ## Support
 
@@ -164,6 +166,6 @@ Please also make sure that before submitting an issue, you view previous issues 
 
 This project is provided as-is for use in managing application distributions. It is not for use of piracy or unauthorized redistribution either commercially or for non-profit, and by using Apothi, you agree that you are using it for personal use only.
 
-## Disclaimer
+# Disclaimer
 
 Apothi is developed and maintained with AI assistance as this is largely a project for personal use.

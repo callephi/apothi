@@ -1,7 +1,7 @@
 {
   "name": "apothi-backend",
-  "version": "1.0.3",
-  "description": "Apothi - Application Distribution Platform Backend",
+  "version": "1.0.3a",
+  "description": "Apothi",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

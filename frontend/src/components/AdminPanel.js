@@ -49,6 +49,13 @@ function AdminPanel({ currentUserId }) {
   const [editUserForm, setEditUserForm] = useState({ username: '', password: '', displayName: '', isAdmin: false });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [settingsTab, setSettingsTab] = useState('versions');
+  const [appExtras, setAppExtras] = useState([]);
+  const [extrasForm, setExtrasForm] = useState({
+    description: '',
+    file: null,
+    filePath: '',
+    useFilePath: false
+  });
   const [appEditForm, setAppEditForm] = useState({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
   const [newTag, setNewTag] = useState('');
   const [tagSuggestions, setTagSuggestions] = useState([]);
@@ -314,6 +321,10 @@ function AdminPanel({ currentUserId }) {
         setSelectedOSTab(operatingSystems[0] || '');
       }
       
+      // Load extras for this app
+      const extrasResponse = await axios.get(`/applications/${app.id}/extras`);
+      setAppExtras(extrasResponse.data.extras || []);
+      
       // Show modal AFTER versions are loaded
       setShowAppSettingsModal(true);
     } catch (err) {
@@ -328,6 +339,58 @@ function AdminPanel({ currentUserId }) {
     // Clear OS tabs to prevent flash on next open
     setVersionOSTabs([]);
     setSelectedOSTab('');
+  };
+
+  const handleUploadExtra = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setVersionModalError('');
+    setVersionModalSuccess('');
+    
+    try {
+      const formData = new FormData();
+      if (extrasForm.useFilePath) {
+        formData.append('filePath', extrasForm.filePath);
+        formData.append('useFilePath', 'true');
+      } else if (extrasForm.file) {
+        formData.append('file', extrasForm.file);
+      } else {
+        setVersionModalError('Please select a file or provide a file path');
+        setLoading(false);
+        return;
+      }
+      formData.append('description', extrasForm.description);
+      
+      await axios.post(`/applications/${selectedAppData.id}/extras`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setVersionModalSuccess('Extra file uploaded successfully');
+      setExtrasForm({ description: '', file: null, filePath: '', useFilePath: false });
+      
+      // Reload extras
+      const response = await axios.get(`/applications/${selectedAppData.id}/extras`);
+      setAppExtras(response.data.extras || []);
+    } catch (err) {
+      setVersionModalError(err.response?.data?.error || 'Failed to upload extra');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteExtra = async (extraId) => {
+    if (!window.confirm('Are you sure you want to delete this extra file?')) return;
+    
+    try {
+      await axios.delete(`/extras/${extraId}`);
+      setSuccess('Extra deleted successfully');
+      
+      // Reload extras
+      const response = await axios.get(`/applications/${selectedAppData.id}/extras`);
+      setAppExtras(response.data.extras || []);
+    } catch (err) {
+      setError('Failed to delete extra');
+    }
   };
 
   const handleEditVersion = (version) => {
@@ -1190,6 +1253,12 @@ function AdminPanel({ currentUserId }) {
               >
                 Versions
               </button>
+              <button
+                className={`btn ${settingsTab === 'extras' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setSettingsTab('extras')}
+              >
+                Extras
+              </button>
             </div>
 
             {/* Scrollable content area */}
@@ -1634,6 +1703,102 @@ function AdminPanel({ currentUserId }) {
             )}
             </>
             )}
+
+            {/* Extras Tab */}
+            {settingsTab === 'extras' && (
+              <div>
+                <h3>Extra Files</h3>
+                
+                {/* Upload Form */}
+                <form onSubmit={handleUploadExtra} style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                  <div className="form-group">
+                    <label>Description (50 characters max)</label>
+                    <input
+                      type="text"
+                      value={extrasForm.description}
+                      onChange={(e) => setExtrasForm({ ...extrasForm, description: e.target.value.slice(0, 50) })}
+                      placeholder="Brief description of this file"
+                      maxLength={50}
+                    />
+                    <span style={{ fontSize: '12px', color: 'var(--text-meta)' }}>
+                      {extrasForm.description.length}/50
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <div className="checkbox-group">
+                      <input
+                        type="checkbox"
+                        id="useFilePathExtras"
+                        checked={extrasForm.useFilePath}
+                        onChange={(e) => setExtrasForm({ ...extrasForm, useFilePath: e.target.checked, file: null })}
+                      />
+                      <label htmlFor="useFilePathExtras">Use file path instead of upload</label>
+                    </div>
+                  </div>
+
+                  {extrasForm.useFilePath ? (
+                    <div className="form-group">
+                      <label>File Path *</label>
+                      <input
+                        type="text"
+                        value={extrasForm.filePath}
+                        onChange={(e) => setExtrasForm({ ...extrasForm, filePath: e.target.value })}
+                        placeholder="/mnt/files/example.zip"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label>Upload File *</label>
+                      <FileUpload
+                        onFileSelect={(file) => setExtrasForm({ ...extrasForm, file })}
+                        currentFile={extrasForm.file}
+                      />
+                    </div>
+                  )}
+
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Uploading...' : 'Upload Extra'}
+                  </button>
+                </form>
+
+                {/* Extras List */}
+                {appExtras.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: 'var(--text-meta)', padding: '40px' }}>
+                    No extra files yet
+                  </p>
+                ) : (
+                  <div>
+                    {appExtras.map(extra => (
+                      <div key={extra.id} className="version-item" style={{ marginBottom: '12px' }}>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: '0 0 8px 0' }}>{extra.file_name}</h4>
+                          {extra.description && (
+                            <p style={{ margin: '4px 0', color: 'var(--text-secondary)', fontSize: '14px' }}>{extra.description}</p>
+                          )}
+                          <p style={{ margin: '4px 0', fontSize: '13px', color: 'var(--text-meta)' }}>
+                            Uploaded: {new Date(extra.uploaded_at).toLocaleDateString()} | {(extra.file_size / (1024 * 1024)).toFixed(2)}MB
+                          </p>
+                          <p style={{ margin: '4px 0', fontSize: '12px', color: 'var(--text-meta)', fontFamily: 'monospace' }}>
+                            Path: {extra.file_path}
+                          </p>
+                        </div>
+                        <div className="version-actions">
+                          <button 
+                            className="btn btn-danger" 
+                            onClick={() => handleDeleteExtra(extra.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             </div> {/* Close scrollable content area */}
             
             {/* Fixed close button at bottom */}

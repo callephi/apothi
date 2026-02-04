@@ -58,6 +58,28 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 * 1024 } // 5GB limit
 });
 
+// Extras upload configuration (separate directory)
+const extrasStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadDir = '/app/uploads/extras';
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const extrasUpload = multer({
+  storage: extrasStorage,
+  limits: { fileSize: 5 * 1024 * 1024 * 1024 } // 5GB limit
+});
+
 // Image upload configuration
 const imageUpload = multer({
   storage: multer.memoryStorage(),
@@ -393,10 +415,17 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
   }
   
   try {
-    const result = await pool.query(
-      'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, archArray]
-    );
+    // Create a separate version row for EACH architecture
+    const architectures = archArray && archArray.length > 0 ? archArray : [null];
+    const results = [];
+    
+    for (const arch of architectures) {
+      const result = await pool.query(
+        'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+        [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, arch ? [arch] : null]
+      );
+      results.push(result.rows[0]);
+    }
     
     // Update has_multiple_os flag if needed
     const osCheck = await pool.query(
@@ -407,7 +436,7 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
       await pool.query('UPDATE applications SET has_multiple_os = TRUE WHERE id = $1', [req.params.id]);
     }
     
-    res.json({ version: result.rows[0] });
+    res.json({ version: results[0] });  // Return first created version
   } catch (err) {
     // Clean up uploaded file if database insert fails (only for uploads, not path references)
     if (req.file) {
@@ -588,6 +617,125 @@ app.put('/api/versions/:id', requireAdmin, async (req, res) => {
     }
     
     res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+// Extras routes
+app.get('/api/applications/:id/extras', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM extras WHERE application_id = $1 ORDER BY uploaded_at DESC',
+      [req.params.id]
+    );
+    res.json({ extras: result.rows });
+  } catch (err) {
+    console.error('Error fetching extras:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/applications/:id/extras', requireAdmin, extrasUpload.single('file'), async (req, res) => {
+  const { description, filePath, useFilePath } = req.body;
+  
+  // Support either file upload OR file path reference
+  let finalFilePath;
+  let fileSize;
+  let fileName;
+  
+  if (useFilePath && filePath) {
+    // Using file path reference
+    try {
+      const stats = await fs.stat(filePath);
+      if (!stats.isFile()) {
+        return res.status(400).json({ error: 'Path is not a file' });
+      }
+      finalFilePath = filePath;
+      fileSize = stats.size;
+      fileName = path.basename(filePath);
+    } catch (err) {
+      return res.status(400).json({ error: 'File not found or not accessible: ' + err.message });
+    }
+  } else if (req.file) {
+    // Using file upload
+    finalFilePath = req.file.path;
+    fileSize = req.file.size;
+    fileName = req.file.originalname;
+  } else {
+    return res.status(400).json({ error: 'Either file upload or file path is required' });
+  }
+  
+  try {
+    const result = await pool.query(
+      'INSERT INTO extras (application_id, file_name, description, file_path, file_size) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [req.params.id, fileName, description || null, finalFilePath, fileSize]
+    );
+    
+    res.json({ extra: result.rows[0] });
+  } catch (err) {
+    // Clean up uploaded file if database insert fails
+    if (req.file) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (unlinkErr) {
+        console.error('Error deleting file:', unlinkErr);
+      }
+    }
+    console.error('Error creating extra:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/extras/:id', requireAdmin, async (req, res) => {
+  try {
+    // Get file path before deleting
+    const extraResult = await pool.query('SELECT * FROM extras WHERE id = $1', [req.params.id]);
+    if (extraResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Extra not found' });
+    }
+    
+    const extra = extraResult.rows[0];
+    
+    // Delete from database
+    await pool.query('DELETE FROM extras WHERE id = $1', [req.params.id]);
+    
+    // Delete file if it's in uploads directory
+    if (extra.file_path.startsWith('/app/uploads/')) {
+      try {
+        await fs.unlink(extra.file_path);
+      } catch (err) {
+        console.log('Could not delete extra file:', err.message);
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting extra:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/download-extra/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM extras WHERE id = $1', [req.params.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Extra not found' });
+    }
+    
+    const extra = result.rows[0];
+    const filePath = extra.file_path;
+    
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch (err) {
+      return res.status(404).json({ error: 'File not found on server' });
+    }
+    
+    res.download(filePath, extra.file_name);
+  } catch (err) {
+    console.error('Error downloading extra:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

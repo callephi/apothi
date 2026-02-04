@@ -23,7 +23,7 @@ services:
       NODE_ENV: production
     volumes:
         # For uploaded files
-      - ./apothi/uploads:/app/uploads
+      - ./apothi:/app/uploads
         # For files on server accessed by directory
       - ./apothi/files:/mnt/files:ro
     depends_on:
@@ -37,10 +37,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - 3000:80
     environment:
     # DEBUG, INFO, and ERROR are levels you can use here. Recommended is ERROR.
-      - REACT_APP_LOG_LEVEL=ERROR
+      - REACT_APP_LOG_LEVEL=INFO
     depends_on:
       - backend
     restart: unless-stopped

@@ -21,7 +21,7 @@ function Footer() {
       background: 'var(--bg-primary)',
       zIndex: 100
     }}>
-      apothi. v1.0.3 | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
+      apothi. v1.0.3a | Designed by <a href="https://github.com/callephi" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-meta)', textDecoration: 'underline' }}>callephi@mcw</a> © {currentYear}.
     </footer>
   );
 }

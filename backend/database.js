@@ -62,6 +62,19 @@ const initDatabase = async () => {
       )
     `);
 
+    // Create extras table for additional files
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS extras (
+        id SERIAL PRIMARY KEY,
+        application_id INTEGER REFERENCES applications(id) ON DELETE CASCADE,
+        file_name VARCHAR(255) NOT NULL,
+        description VARCHAR(50),
+        file_path VARCHAR(500) NOT NULL,
+        file_size BIGINT,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Migrate existing tables - add new columns if they don't exist
     try {
       await pool.query(`
@@ -122,6 +135,18 @@ const initDatabase = async () => {
       `);
       console.log('Architecture column type:', typeCheck.rows[0]);
       
+      // Create immutable function for converting array to text
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION arch_array_to_text(text[])
+        RETURNS text
+        LANGUAGE sql
+        IMMUTABLE
+        AS $$
+          SELECT COALESCE(array_to_string($1, ','), '');
+        $$;
+      `);
+      console.log('Immutable function created for architecture indexing');
+      
       // Drop old columns if they exist
       try {
         await pool.query(`
@@ -167,13 +192,14 @@ const initDatabase = async () => {
             DROP INDEX IF EXISTS versions_unique_combo;
             
             -- Create new constraint with COALESCE to handle NULLs
-            -- This allows same version_number with different OS/types
-            -- Architecture is now an array, so multiple archs can exist for same version/OS/type
+            -- Architecture is stored as single-value array per row
+            -- Use custom immutable function to convert array to text
             CREATE UNIQUE INDEX versions_unique_combo ON versions (
               application_id, 
               version_number, 
               COALESCE(operating_system, ''), 
-              version_type
+              version_type,
+              arch_array_to_text(architecture)
             );
           END $$;
         `);
