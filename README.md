@@ -11,8 +11,6 @@ A lightweight download frontend for your desktop applications.
 - User management
 - Quick Docker Compose deployment
 
-* coming soon
-
 ## Screenshots
 
 <a href="./media/library_preview.jpg"><img src="./media/library_preview.jpg" width="49.5%"/></a> <a href="./media/library_preview-list.jpg"><img src="./media/library_preview-list.jpg" width="49.5%"/></a> <a href="./media/admin-panel-preview.jpg"><img src="./media/admin-panel-preview.jpg" width="49.5%"/></a> <a href="./media/admin-panel-modal.jpg"><img src="./media/admin-panel-modal.jpg" width="49.5%"/></a>
