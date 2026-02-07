@@ -23,8 +23,8 @@ services:
       NODE_ENV: production
     volumes:
         # For uploaded files
-      - ./apothi:/app/uploads
-        # For files on server accessed by directory
+      - ./apothi/uploads:/app/uploads
+        # For files on server accessed by directory, you can replace './apothi/files' with any path on the host
       - ./apothi/files:/mnt/files:ro
     depends_on:
       - postgres

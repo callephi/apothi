@@ -1,6 +1,8 @@
 # apothi.
 
-A lightweight download frontend for your desktop applications.
+Welcome to apothi, your apothecary for applications.
+
+Apothi is a lightweight application library manager with a frontend that provides in-depth control of your applications' versions, details, tagging, and more.
 
 ## Features
 
@@ -13,7 +15,7 @@ A lightweight download frontend for your desktop applications.
 
 ## Screenshots
 
-<a href="./media/library_preview.jpg"><img src="./media/library_preview.jpg" width="49.5%"/></a> <a href="./media/library_preview-list.jpg"><img src="./media/library_preview-list.jpg" width="49.5%"/></a> <a href="./media/admin-panel-preview.jpg"><img src="./media/admin-panel-preview.jpg" width="49.5%"/></a> <a href="./media/admin-panel-modal.jpg"><img src="./media/admin-panel-modal.jpg" width="49.5%"/></a>
+<a href="./media/library_preview.jpg"><img src="./media/library_preview.jpg" width="49.5%"/></a> <a href="./media/library_preview-extras.jpg"><img src="./media/library_preview-extras.jpg" width="49.5%"/></a> <a href="./media/admin-panel-preview.jpg"><img src="./media/admin-panel-preview.jpg" width="49.5%"/></a> <a href="./media/admin-panel-modal.jpg"><img src="./media/admin-panel-modal.jpg" width="49.5%"/></a>
 
 ## Deployment
 
@@ -55,8 +57,8 @@ services:
       NODE_ENV: production
     volumes:
         # For uploaded files
-      - ./apothi:/app/uploads
-        # For files on server accessed by directory
+      - ./apothi/uploads:/app/uploads
+        # For files on server accessed by directory, you can replace './apothi/files' with any path on the host
       - ./apothi/files:/mnt/files:ro
     depends_on:
       - postgres
@@ -77,7 +79,11 @@ services:
       - backend
     restart: unless-stopped
 ```
+**WARNING:** If you use a Docker container manager such as Portainer or Komodo, make sure that the paths you give in this compose are visible by the containers. This includes the files from the repo, which you can ultimately fix by changing the `context` field to an absolute directory that bypasses the folder the compose is ran from.
+ 
 Be sure to change the `SESSION_SECRET` in the backend to anything you like, as well as `POSTGRES_USER` and `POSTGRES_PASSWORD` to something more confidential. Be sure that, if you do, you also adapt `DATABASE_URL` to have the correct credentials.
+
+Optionally, you can also change `./apothi/files` in `backend` to a directory on your host. Keep in mind that what you mount to in the container (`/mnt/files` by default) will be what you have to fill in when adding a version later on.
 
 There is no need for further configuration with Apothi. Just run `docker compose build` to get the image together, and `docker compose up` to get going.
 
@@ -85,7 +91,7 @@ Apothi is now accessible via `http://localhost:3000`!
 
 ### Default login credentials
 
-By default, the admin login is simply:
+By default, the admin login by default is:
 
 ```
 Username: admin
@@ -156,7 +162,7 @@ docker-compose logs -f
 Common issues are usually related to:
 - Port conflicts (3000 and 3001 are common)
 - Database initialization (sometimes needs a few minutes for migration or initialization on first run)
-- File permissions (make sure your files are accesible by your Docker UID & GID)
+- File permissions or directory errors (make sure your files are accesible by your Docker UID & GID and visible by the container)
 
 Please also make sure that before submitting an issue, you view previous issues to ensure yours is unique.
 
