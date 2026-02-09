@@ -1,10 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestAllowed, setGuestAllowed] = useState(false);
+
+  useEffect(() => {
+    // Check if guest login is allowed
+    const checkGuestStatus = async () => {
+      try {
+        const response = await axios.get('/auth/guest-allowed');
+        setGuestAllowed(response.data.guestAllowed);
+      } catch (err) {
+        console.error('Failed to check guest status:', err);
+        setGuestAllowed(false);
+      }
+    };
+    checkGuestStatus();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,15 +78,17 @@ function Login({ onLogin }) {
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
-          <button 
-            type="button" 
-            className="btn btn-secondary" 
-            style={{ width: '100%', marginTop: '10px' }} 
-            onClick={handleGuestLogin}
-            disabled={loading}
-          >
-            View as Guest
-          </button>
+          {guestAllowed && (
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              style={{ width: '100%', marginTop: '10px' }} 
+              onClick={handleGuestLogin}
+              disabled={loading}
+            >
+              View as Guest
+            </button>
+          )}
         </form>
       </div>
     </div>

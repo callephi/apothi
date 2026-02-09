@@ -138,6 +138,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
+    // Check if guest login is disabled
+    const guestAllowed = process.env.GUEST_ALLOWED !== 'false';
+    if (username === 'guest' && !guestAllowed) {
+      return res.status(403).json({ error: 'Guest login is disabled' });
+    }
+    
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -173,6 +179,12 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Check if guest login is allowed (public endpoint)
+app.get('/api/auth/guest-allowed', (req, res) => {
+  const guestAllowed = process.env.GUEST_ALLOWED !== 'false';
+  res.json({ guestAllowed });
 });
 
 // User management (admin only)
