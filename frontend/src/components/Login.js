@@ -20,6 +20,19 @@ function Login({ onLogin }) {
     }
   };
 
+  const handleGuestLogin = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      await onLogin('guest', 'guest');
+    } catch (err) {
+      setError('Guest login failed. Please contact administrator.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -48,6 +61,15 @@ function Login({ onLogin }) {
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
+          </button>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            style={{ width: '100%', marginTop: '10px' }} 
+            onClick={handleGuestLogin}
+            disabled={loading}
+          >
+            View as Guest
           </button>
         </form>
       </div>

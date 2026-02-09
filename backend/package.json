@@ -1,6 +1,6 @@
 {
   "name": "apothi-backend",
-  "version": "1.0.3a",
+  "version": "1.1.0",
   "description": "Apothi",
   "main": "server.js",
   "scripts": {

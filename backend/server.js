@@ -409,23 +409,21 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
     return res.status(400).json({ error: 'Either file upload or file path is required' });
   }
   
-  // Validate version_type
-  if (!versionType || !['installer', 'portable', 'source'].includes(versionType)) {
+  // Validate version_type (required for desktop, optional for mobile)
+  const isMobile = operatingSystem === 'iOS' || operatingSystem === 'Android';
+  if (!isMobile && (!versionType || !['installer', 'portable', 'source'].includes(versionType))) {
     return res.status(400).json({ error: 'Invalid version type. Must be installer, portable, or source' });
   }
   
+  // For mobile platforms, set version_type to null if not provided
+  const finalVersionType = isMobile ? null : versionType;
+  
   try {
-    // Create a separate version row for EACH architecture
-    const architectures = archArray && archArray.length > 0 ? archArray : [null];
-    const results = [];
-    
-    for (const arch of architectures) {
-      const result = await pool.query(
-        'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-        [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, versionType, releaseDate || null, notes, sortOrder || 0, arch ? [arch] : null]
-      );
-      results.push(result.rows[0]);
-    }
+    // Create a single version with architecture array
+    const result = await pool.query(
+      'INSERT INTO versions (application_id, version_number, file_path, file_size, operating_system, version_type, release_date, notes, sort_order, architecture) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [req.params.id, versionNumber, finalFilePath, fileSize, operatingSystem || null, finalVersionType, releaseDate || null, notes, sortOrder || 0, archArray]
+    );
     
     // Update has_multiple_os flag if needed
     const osCheck = await pool.query(
@@ -436,7 +434,7 @@ app.post('/api/applications/:id/versions', requireAdmin, upload.single('file'), 
       await pool.query('UPDATE applications SET has_multiple_os = TRUE WHERE id = $1', [req.params.id]);
     }
     
-    res.json({ version: results[0] });  // Return first created version
+    res.json({ version: result.rows[0] });
   } catch (err) {
     // Clean up uploaded file if database insert fails (only for uploads, not path references)
     if (req.file) {
@@ -735,6 +733,67 @@ app.get('/api/download-extra/:id', requireAuth, async (req, res) => {
     res.download(filePath, extra.file_name);
   } catch (err) {
     console.error('Error downloading extra:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Clear unused cache
+app.post('/api/clear-cache', requireAdmin, async (req, res) => {
+  try {
+    let deletedImages = 0;
+    let deletedExtras = 0;
+    
+    // Get all app icon URLs from database
+    const appsResult = await pool.query('SELECT icon_url FROM applications WHERE icon_url IS NOT NULL');
+    const usedImagePaths = new Set(
+      appsResult.rows
+        .map(row => row.icon_url)
+        .map(url => url.startsWith('/app/uploads/images/') ? url.split('/').pop() : url.split('/').pop())
+    );
+    
+    // Get all extras file paths from database
+    const extrasResult = await pool.query('SELECT file_path FROM extras');
+    const usedExtraPaths = new Set(
+      extrasResult.rows
+        .map(row => row.file_path)
+        .map(path => path.startsWith('/app/uploads/extras/') ? path.split('/').pop() : path.split('/').pop())
+    );
+    
+    // Check images directory
+    const imagesDir = '/app/uploads/images';
+    try {
+      const imageFiles = await fs.readdir(imagesDir);
+      for (const file of imageFiles) {
+        if (!usedImagePaths.has(file)) {
+          await fs.unlink(`${imagesDir}/${file}`);
+          deletedImages++;
+        }
+      }
+    } catch (err) {
+      console.log('Images directory not found or empty');
+    }
+    
+    // Check extras directory
+    const extrasDir = '/app/uploads/extras';
+    try {
+      const extraFiles = await fs.readdir(extrasDir);
+      for (const file of extraFiles) {
+        if (!usedExtraPaths.has(file)) {
+          await fs.unlink(`${extrasDir}/${file}`);
+          deletedExtras++;
+        }
+      }
+    } catch (err) {
+      console.log('Extras directory not found or empty');
+    }
+    
+    res.json({ 
+      message: `Cache cleared: ${deletedImages} unused images and ${deletedExtras} unused extras deleted`,
+      deletedImages,
+      deletedExtras
+    });
+  } catch (err) {
+    console.error('Error clearing cache:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

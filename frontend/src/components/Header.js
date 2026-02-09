@@ -43,12 +43,39 @@ function Header({ user, onLogout }) {
   return (
     <div className="header">
       <div className="header-content">
-        <h1 style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
-          apothi.
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div className="menu-container menu-mobile-inline">
+            <button className="hamburger-btn" onClick={() => setShowMenu(!showMenu)}>
+              ☰
+            </button>
+            {showMenu && (
+              <div className="dropdown-menu dropdown-menu-left">
+                {user.is_admin && location.pathname !== '/admin' && (
+                  <button onClick={() => { navigate('/admin'); setShowMenu(false); }}>
+                    Admin Panel
+                  </button>
+                )}
+                {location.pathname === '/admin' && (
+                  <button onClick={() => { navigate('/'); setShowMenu(false); }}>
+                    Library
+                  </button>
+                )}
+                <button onClick={toggleDarkMode}>
+                  {darkMode ? 'Light Mode' : 'Dark Mode'}
+                </button>
+                <button onClick={() => { onLogout(); setShowMenu(false); }}>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+          <h1 style={{ cursor: 'pointer', margin: 0 }} onClick={() => navigate('/')}>
+            apothi.
+          </h1>
+        </div>
         <div className="header-actions">
           <span className="username">Welcome, {user.display_name || user.username}</span>
-          <div className="menu-container">
+          <div className="menu-container menu-desktop-only">
             <button className="hamburger-btn" onClick={() => setShowMenu(!showMenu)}>
               ☰
             </button>

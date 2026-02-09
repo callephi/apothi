@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import FileUpload from './FileUpload';
 import ConfirmModal from './ConfirmModal';
 import logger from '../utils/logger';
 
 function AdminPanel({ currentUserId }) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('applications');
   const [applications, setApplications] = useState([]);
   const [users, setUsers] = useState([]);
@@ -13,12 +15,18 @@ function AdminPanel({ currentUserId }) {
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAppSettingsModal, setShowAppSettingsModal] = useState(false);
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
   const [selectedApp, setSelectedApp] = useState(null);
   const [selectedAppData, setSelectedAppData] = useState(null);
   const [appVersions, setAppVersions] = useState({});
   const [editingVersion, setEditingVersion] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sortAppsBy, setSortAppsBy] = useState('name');
+  const [appsPerPage, setAppsPerPage] = useState(() => {
+    const saved = localStorage.getItem('apothi_admin_appsPerPage');
+    return saved ? parseInt(saved) : 24;
+  });
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Form states
   const [appForm, setAppForm] = useState({ name: '', description: '', developer: '', iconUrl: '', homepage: '', tags: [] });
@@ -28,6 +36,7 @@ function AdminPanel({ currentUserId }) {
     file: null, 
     filePath: '', 
     useFilePath: false,
+    platform: 'desktop',
     operatingSystem: '',
     versionType: 'installer',
     releaseDate: '',
@@ -38,6 +47,7 @@ function AdminPanel({ currentUserId }) {
     notes: '', 
     filePath: '', 
     useFilePath: false,
+    platform: 'desktop',
     operatingSystem: '',
     versionType: 'installer',
     releaseDate: '',
@@ -81,6 +91,18 @@ function AdminPanel({ currentUserId }) {
     loadApplications();
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    // Detect mobile device
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      setShowMobileWarning(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('apothi_admin_appsPerPage', appsPerPage.toString());
+  }, [appsPerPage]);
 
   const loadApplications = async () => {
     try {
@@ -198,6 +220,7 @@ function AdminPanel({ currentUserId }) {
         file: null, 
         filePath: '', 
         useFilePath: false,
+        platform: 'desktop',
         operatingSystem: '',
         versionType: 'installer',
         releaseDate: '',
@@ -314,7 +337,7 @@ function AdminPanel({ currentUserId }) {
       // Set OS tabs if app has multiple OS
       if (app.has_multiple_os) {
         const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))].sort((a, b) => {
-          const order = ['Windows', 'macOS', 'Linux', 'Source Code'];
+          const order = ['Windows', 'macOS', 'Linux', 'iOS', 'Android', 'Source Code'];
           return order.indexOf(a) - order.indexOf(b);
         });
         setVersionOSTabs(operatingSystems);
@@ -379,17 +402,31 @@ function AdminPanel({ currentUserId }) {
   };
 
   const handleDeleteExtra = async (extraId) => {
-    if (!window.confirm('Are you sure you want to delete this extra file?')) return;
-    
     try {
       await axios.delete(`/extras/${extraId}`);
       setSuccess('Extra deleted successfully');
+      setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
       
       // Reload extras
       const response = await axios.get(`/applications/${selectedAppData.id}/extras`);
       setAppExtras(response.data.extras || []);
     } catch (err) {
       setError('Failed to delete extra');
+      setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+    }
+  };
+
+  const handleClearCache = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post('/clear-cache');
+      setSuccess(response.data.message || 'Cache cleared successfully');
+      setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to clear cache');
+      setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -420,6 +457,7 @@ function AdminPanel({ currentUserId }) {
       notes: version.notes || '',
       filePath: version.file_path,
       useFilePath: !version.file_path.startsWith('/app/uploads/'),
+      platform: (version.operating_system === 'iOS' || version.operating_system === 'Android') ? 'mobile' : 'desktop',
       operatingSystem: version.operating_system || '',
       versionType: version.version_type || 'installer',
       releaseDate: formattedDate,
@@ -545,6 +583,44 @@ function AdminPanel({ currentUserId }) {
 
   return (
     <div className="container">
+      {/* Mobile Warning Modal */}
+      {showMobileWarning && (
+        <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
+          <div 
+            className="modal" 
+            style={{ 
+              maxWidth: '500px',
+              padding: '20px'
+            }} 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: '16px', fontSize: '20px' }}>⚠️ Mobile Warning</h2>
+            <p style={{ marginTop: 0, marginBottom: '12px', lineHeight: '1.6', fontSize: '14px' }}>
+              The Admin Panel is not designed for mobile use. Many features may not work properly on small screens.
+            </p>
+            <p style={{ marginTop: 0, marginBottom: '20px', lineHeight: '1.6', fontSize: '14px' }}>
+              For the best experience, please use a desktop or laptop computer.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => navigate('/')}
+                style={{ width: '100%' }}
+              >
+                ← Back to Library
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setShowMobileWarning(false)}
+                style={{ width: '100%' }}
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 style={{ marginBottom: '20px', color: '#2c3e50' }}>Admin Panel</h2>
 
       {error && <div className="error">{error}</div>}
@@ -562,6 +638,20 @@ function AdminPanel({ currentUserId }) {
           onClick={() => setActiveTab('users')}
         >
           Users
+        </button>
+        <button
+          className="btn btn-danger"
+          onClick={() => {
+            setConfirmModal({
+              isOpen: true,
+              title: 'Clear Unused Cache',
+              message: 'This will permanently delete all images and extras that are not currently used by any application. This action cannot be undone. Are you sure?',
+              onConfirm: handleClearCache
+            });
+          }}
+          style={{ marginLeft: 'auto' }}
+        >
+          Clear Unused Cache
         </button>
       </div>
 
@@ -608,6 +698,34 @@ function AdminPanel({ currentUserId }) {
             />
           </div>
 
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+            <select
+              value={appsPerPage}
+              onChange={(e) => {
+                setAppsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="filter-select"
+              style={{ width: 'auto' }}
+            >
+              <option value={12}>12 per page</option>
+              <option value={24}>24 per page</option>
+              <option value={48}>48 per page</option>
+            </select>
+            
+            <div style={{ fontSize: '14px', color: 'var(--text-meta)' }}>
+              {(() => {
+                const filtered = applications.filter(app =>
+                  app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                const start = (currentPage - 1) * appsPerPage + 1;
+                const end = Math.min(currentPage * appsPerPage, filtered.length);
+                return `${filtered.length > 0 ? start : 0}-${end} of ${filtered.length}`;
+              })()}
+            </div>
+          </div>
+
           {applications
             .filter(app =>
               app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -626,19 +744,25 @@ function AdminPanel({ currentUserId }) {
             </div>
           ) : (
             <div>
-              {applications
-                .filter(app =>
-                  app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  app.description?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .sort((a, b) => {
-                  if (sortAppsBy === 'name') {
-                    return a.name.localeCompare(b.name);
-                  } else {
-                    return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
-                  }
-                })
-                .map(app => (
+              {(() => {
+                const filtered = applications
+                  .filter(app =>
+                    app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    if (sortAppsBy === 'name') {
+                      return a.name.localeCompare(b.name);
+                    } else {
+                      return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+                    }
+                  });
+                
+                const startIndex = (currentPage - 1) * appsPerPage;
+                const endIndex = startIndex + appsPerPage;
+                const paginatedApps = filtered.slice(startIndex, endIndex);
+                
+                return paginatedApps.map(app => (
                 <div key={app.id} className="version-item" style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                   {app.icon_url && (
                     <img src={app.icon_url} alt={app.name} style={{ maxWidth: '64px', maxHeight: '64px', width: 'auto', height: 'auto', borderRadius: '12px', objectFit: 'contain', flexShrink: 0 }} />
@@ -702,7 +826,89 @@ function AdminPanel({ currentUserId }) {
                     </button>
                   </div>
                 </div>
-              ))}
+              ));
+              })()}
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {applications.filter(app =>
+            app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+          ).length > appsPerPage && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: '10px', 
+              marginTop: '30px',
+              marginBottom: '20px'
+            }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{ minWidth: '80px' }}
+              >
+                Previous
+              </button>
+              
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {(() => {
+                  const totalPages = Math.ceil(
+                    applications.filter(app =>
+                      app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).length / appsPerPage
+                  );
+                  
+                  return Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 7) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 4) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 3) {
+                      pageNum = totalPages - 6 + i;
+                    } else {
+                      pageNum = currentPage - 3 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        className={`btn ${currentPage === pageNum ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setCurrentPage(pageNum)}
+                        style={{ minWidth: '40px' }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+              
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  const totalPages = Math.ceil(
+                    applications.filter(app =>
+                      app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).length / appsPerPage
+                  );
+                  setCurrentPage(p => Math.min(totalPages, p + 1));
+                }}
+                disabled={currentPage === Math.ceil(
+                  applications.filter(app =>
+                    app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    app.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                  ).length / appsPerPage
+                )}
+                style={{ minWidth: '80px' }}
+              >
+                Next
+              </button>
             </div>
           )}
         </div>
@@ -1016,55 +1222,69 @@ function AdminPanel({ currentUserId }) {
               </div>
               
               <div className="form-group">
-                <label>Version Type *</label>
-                <div style={{ display: 'flex', gap: '20px', marginTop: '10px', flexWrap: 'nowrap' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    <input
-                      type="radio"
-                      name="versionType"
-                      value="installer"
-                      checked={versionForm.versionType === 'installer'}
-                      onChange={(e) => {
-                        setVersionForm({ ...versionForm, versionType: e.target.value });
-                        if (!versionForm.operatingSystem) {
-                          setVersionForm(prev => ({ ...prev, operatingSystem: '' }));
-                        }
-                      }}
-                      style={{ marginRight: '8px' }}
-                    />
-                    Installer
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    <input
-                      type="radio"
-                      name="versionType"
-                      value="portable"
-                      checked={versionForm.versionType === 'portable'}
-                      onChange={(e) => {
-                        setVersionForm({ ...versionForm, versionType: e.target.value });
-                        if (!versionForm.operatingSystem) {
-                          setVersionForm(prev => ({ ...prev, operatingSystem: '' }));
-                        }
-                      }}
-                      style={{ marginRight: '8px' }}
-                    />
-                    Portable
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    <input
-                      type="radio"
-                      name="versionType"
-                      value="source"
-                      checked={versionForm.versionType === 'source'}
-                      onChange={(e) => setVersionForm({ ...versionForm, versionType: e.target.value, operatingSystem: '' })}
-                      style={{ marginRight: '8px' }}
-                    />
-                    Source Code
-                  </label>
-                </div>
+                <label>Platform *</label>
+                <select
+                  value={versionForm.platform}
+                  onChange={(e) => setVersionForm({ ...versionForm, platform: e.target.value, operatingSystem: '' })}
+                  required
+                >
+                  <option value="desktop">Desktop</option>
+                  <option value="mobile">Mobile</option>
+                </select>
               </div>
+              
+              {versionForm.platform === 'desktop' && (
+                <div className="form-group">
+                  <label>Version Type *</label>
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '10px', flexWrap: 'nowrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="radio"
+                        name="versionType"
+                        value="installer"
+                        checked={versionForm.versionType === 'installer'}
+                        onChange={(e) => {
+                          setVersionForm({ ...versionForm, versionType: e.target.value });
+                          if (!versionForm.operatingSystem) {
+                            setVersionForm(prev => ({ ...prev, operatingSystem: '' }));
+                          }
+                        }}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Installer
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="radio"
+                        name="versionType"
+                        value="portable"
+                        checked={versionForm.versionType === 'portable'}
+                        onChange={(e) => {
+                          setVersionForm({ ...versionForm, versionType: e.target.value });
+                          if (!versionForm.operatingSystem) {
+                            setVersionForm(prev => ({ ...prev, operatingSystem: '' }));
+                          }
+                        }}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Portable
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input
+                        type="radio"
+                        name="versionType"
+                        value="source"
+                        checked={versionForm.versionType === 'source'}
+                        onChange={(e) => setVersionForm({ ...versionForm, versionType: e.target.value, operatingSystem: '' })}
+                        style={{ marginRight: '8px' }}
+                      />
+                      Source Code
+                    </label>
+                  </div>
+                </div>
+              )}
 
-              {versionForm.versionType !== 'source' && (
+              {versionForm.platform === 'desktop' && versionForm.versionType !== 'source' && (
                 <div className="form-group">
                   <label>Operating System *</label>
                   <select
@@ -1080,7 +1300,22 @@ function AdminPanel({ currentUserId }) {
                 </div>
               )}
 
-              {versionForm.versionType !== 'source' && versionForm.operatingSystem && (
+              {versionForm.platform === 'mobile' && (
+                <div className="form-group">
+                  <label>Mobile Operating System *</label>
+                  <select
+                    value={versionForm.operatingSystem}
+                    onChange={(e) => setVersionForm({ ...versionForm, operatingSystem: e.target.value })}
+                    required
+                  >
+                    <option value="">Select mobile OS...</option>
+                    <option value="iOS">iOS</option>
+                    <option value="Android">Android</option>
+                  </select>
+                </div>
+              )}
+
+              {((versionForm.platform === 'desktop' && versionForm.versionType !== 'source') || versionForm.platform === 'mobile') && versionForm.operatingSystem && (
                 <div className="form-group">
                   <label>CPU Architecture (select all that apply)</label>
                   <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -1563,45 +1798,59 @@ function AdminPanel({ currentUserId }) {
                         )}
                         
                         <div className="form-group">
-                          <label>Version Type *</label>
-                          <div style={{ display: 'flex', gap: '20px', marginTop: '10px', flexWrap: 'nowrap' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              <input
-                                type="radio"
-                                name="editVersionType"
-                                value="installer"
-                                checked={editVersionForm.versionType === 'installer'}
-                                onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value })}
-                                style={{ marginRight: '8px' }}
-                              />
-                              Installer
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              <input
-                                type="radio"
-                                name="editVersionType"
-                                value="portable"
-                                checked={editVersionForm.versionType === 'portable'}
-                                onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value })}
-                                style={{ marginRight: '8px' }}
-                              />
-                              Portable
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              <input
-                                type="radio"
-                                name="editVersionType"
-                                value="source"
-                                checked={editVersionForm.versionType === 'source'}
-                                onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value, operatingSystem: '' })}
-                                style={{ marginRight: '8px' }}
-                              />
-                              Source Code
-                            </label>
-                          </div>
+                          <label>Platform *</label>
+                          <select
+                            value={editVersionForm.platform}
+                            onChange={(e) => setEditVersionForm({ ...editVersionForm, platform: e.target.value, operatingSystem: '' })}
+                            required
+                          >
+                            <option value="desktop">Desktop</option>
+                            <option value="mobile">Mobile</option>
+                          </select>
                         </div>
+                        
+                        {editVersionForm.platform === 'desktop' && (
+                          <div className="form-group">
+                            <label>Version Type *</label>
+                            <div style={{ display: 'flex', gap: '20px', marginTop: '10px', flexWrap: 'nowrap' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                <input
+                                  type="radio"
+                                  name="editVersionType"
+                                  value="installer"
+                                  checked={editVersionForm.versionType === 'installer'}
+                                  onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value })}
+                                  style={{ marginRight: '8px' }}
+                                />
+                                Installer
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                <input
+                                  type="radio"
+                                  name="editVersionType"
+                                  value="portable"
+                                  checked={editVersionForm.versionType === 'portable'}
+                                  onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value })}
+                                  style={{ marginRight: '8px' }}
+                                />
+                                Portable
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                <input
+                                  type="radio"
+                                  name="editVersionType"
+                                  value="source"
+                                  checked={editVersionForm.versionType === 'source'}
+                                  onChange={(e) => setEditVersionForm({ ...editVersionForm, versionType: e.target.value, operatingSystem: '' })}
+                                  style={{ marginRight: '8px' }}
+                                />
+                                Source Code
+                              </label>
+                            </div>
+                          </div>
+                        )}
 
-                        {editVersionForm.versionType !== 'source' && (
+                        {editVersionForm.platform === 'desktop' && editVersionForm.versionType !== 'source' && (
                           <div className="form-group">
                             <label>Operating System *</label>
                             <select
@@ -1617,7 +1866,22 @@ function AdminPanel({ currentUserId }) {
                           </div>
                         )}
 
-                        {editVersionForm.versionType !== 'source' && editVersionForm.operatingSystem && (
+                        {editVersionForm.platform === 'mobile' && (
+                          <div className="form-group">
+                            <label>Mobile Operating System *</label>
+                            <select
+                              value={editVersionForm.operatingSystem}
+                              onChange={(e) => setEditVersionForm({ ...editVersionForm, operatingSystem: e.target.value })}
+                              required
+                            >
+                              <option value="">Select mobile OS...</option>
+                              <option value="iOS">iOS</option>
+                              <option value="Android">Android</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {((editVersionForm.platform === 'desktop' && editVersionForm.versionType !== 'source') || editVersionForm.platform === 'mobile') && editVersionForm.operatingSystem && (
                           <div className="form-group">
                             <label>CPU Architecture (select all that apply)</label>
                             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -1787,7 +2051,14 @@ function AdminPanel({ currentUserId }) {
                         <div className="version-actions">
                           <button 
                             className="btn btn-danger" 
-                            onClick={() => handleDeleteExtra(extra.id)}
+                            onClick={() => {
+                              setConfirmModal({
+                                isOpen: true,
+                                title: 'Delete Extra File',
+                                message: `Are you sure you want to delete ${extra.file_name}?`,
+                                onConfirm: () => handleDeleteExtra(extra.id)
+                              });
+                            }}
                           >
                             Delete
                           </button>

@@ -715,6 +715,8 @@ body.dark-mode .filter-select {
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  overflow-y: auto;
+  padding: 10px;
 }
 
 .modal {
@@ -723,10 +725,15 @@ body.dark-mode .filter-select {
   border-radius: 16px;
   max-width: 600px;
   width: 90%;
-  max-height: 90vh;
+  max-height: calc(100vh - 20px);
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,0.4);
   border: 1px solid var(--border-color);
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  position: relative;
+  margin: auto;
 }
 
 .modal h2 {
@@ -942,16 +949,50 @@ body.dark-mode a[href] svg {
   }
   
   .header-content {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .header-actions {
-    width: 100%;
+    flex-direction: row;
     justify-content: space-between;
   }
   
+  .header-actions {
+    width: auto;
+  }
+  
+  .header-desktop-only {
+    display: none;
+  }
+  
+  .menu-mobile-inline {
+    display: block;
+  }
+  
+  .dropdown-menu-left {
+    left: 0;
+    right: auto;
+  }
+  
   .username {
+    display: none;
+  }
+  
+  /* Disable list view on mobile */
+  .view-mode-list {
+    display: none !important;
+  }
+  
+  /* Hide descriptions in admin panel on mobile */
+  .admin-panel .app-description {
+    display: none;
+  }
+  
+  /* Hide desktop menu on mobile */
+  .menu-desktop-only {
+    display: none;
+  }
+}
+
+/* Desktop-only styles */
+@media (min-width: 769px) {
+  .menu-mobile-inline {
     display: none;
   }
 }

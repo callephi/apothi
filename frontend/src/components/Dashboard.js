@@ -263,7 +263,7 @@ function Dashboard() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       if (axios.isCancel(err)) {
-        logger.log('Download cancelled');
+        logger.info('Download cancelled');
       } else {
         logger.error('Error downloading:', err);
         alert('Failed to download file');
@@ -349,8 +349,19 @@ function Dashboard() {
   const renderOSTagsAndHomepage = (app) => {
     const versions = appVersions[app.id] || [];
     const operatingSystems = [...new Set(versions.map(v => v.operating_system).filter(Boolean))];
+    
+    // Separate mobile and desktop platforms
+    const mobileOS = operatingSystems.filter(os => os === 'iOS' || os === 'Android');
+    const desktopOS = operatingSystems.filter(os => os !== 'iOS' && os !== 'Android');
+    
     const osOrder = ['Windows', 'macOS', 'Linux', 'Source Code'];
-    const sortedOS = operatingSystems.sort((a, b) => osOrder.indexOf(a) - osOrder.indexOf(b));
+    const sortedDesktopOS = desktopOS.sort((a, b) => osOrder.indexOf(a) - osOrder.indexOf(b));
+    
+    // If there are mobile platforms, add "Mobile" tag
+    const displayTags = [...sortedDesktopOS];
+    if (mobileOS.length > 0) {
+      displayTags.push('Mobile');
+    }
 
     if (viewMode === 'grid') {
       return (
@@ -388,7 +399,7 @@ function Dashboard() {
               Extras ›
             </button>
           )}
-          {sortedOS.map(os => (
+          {displayTags.map(os => (
             <span key={os} style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
@@ -414,7 +425,7 @@ function Dashboard() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginTop: sortedOS.length > 0 ? '4px' : '0'
+                marginTop: displayTags.length > 0 ? '4px' : '0'
               }}
               title={app.homepage}
             >
@@ -454,7 +465,7 @@ function Dashboard() {
               Extras ›
             </button>
           )}
-          {sortedOS.map(os => (
+          {displayTags.map(os => (
             <span key={os} style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
@@ -860,6 +871,8 @@ function Dashboard() {
             <option value="Windows">Windows</option>
             <option value="macOS">macOS</option>
             <option value="Linux">Linux</option>
+            <option value="iOS">Mobile (iOS)</option>
+            <option value="Android">Mobile (Android)</option>
             <option value="Source Code">Source Code</option>
           </select>
 
@@ -939,7 +952,7 @@ function Dashboard() {
             <img src="/icons/grid.svg" width="20" height="20" alt="Grid" style={{ display: 'block' }} />
           </button>
           <button
-            className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'} view-mode-list`}
             onClick={() => setViewMode('list')}
             style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="List View"

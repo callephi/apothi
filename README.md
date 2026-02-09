@@ -55,6 +55,8 @@ services:
       DATABASE_URL: postgresql://admin:admin@postgres:5432/apothi
       SESSION_SECRET: CHANGE_ME_IMMEDIATELY
       NODE_ENV: production
+      # Uncomment below to disable guest login
+      # GUEST_ALLOWED: "false"
     volumes:
         # For uploaded files
       - ./apothi/uploads:/app/uploads
@@ -74,7 +76,7 @@ services:
       - 3000:80
     environment:
     # DEBUG, INFO, and ERROR are levels you can use here. Recommended is ERROR.
-      - REACT_APP_LOG_LEVEL=INFO
+      - REACT_APP_LOG_LEVEL=ERROR
     depends_on:
       - backend
     restart: unless-stopped
