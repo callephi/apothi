@@ -4,6 +4,11 @@ Welcome to apothi, your apothecary for applications.
 
 Apothi is a lightweight application library manager with a frontend that provides in-depth control of your applications' versions, details, tagging, and more.
 
+#### Update October 5th, 2026
+As of today, the repo is archived. apothi very much still works, however I ultimately realized that I didn't have a real-world use for apothi. It's nice as a frontend and convenient if remote, but perhaps because of time I just don't find myself using it. Perhaps, it's a problem that didn't need fixing for me. But it's a neat little idea anyhow, and hopefully someone out there finds it a good fit for them.
+
+I am working on [callephiin](https://github.com/callephi/callephiin), a Jellyfin client, if you'd like to see my other works.
+
 ## Features
 
 - Application library with search, filter, and tag functionality
